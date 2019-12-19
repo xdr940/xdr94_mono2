@@ -124,7 +124,7 @@ def test_simple(args):
             features = encoder(input_image)#a list from 0 to 4
             outputs = depth_decoder(features)# dict , 4 disptensor
 
-            disp = outputs[("disp", 0)]# has a same size with input
+            disp = outputs[("disp", 0,0)]# has a same size with input
             disp_resized = torch.nn.functional.interpolate(
                 disp, (original_height, original_width), mode="bilinear", align_corners=False)
 

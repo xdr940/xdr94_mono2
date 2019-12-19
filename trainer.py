@@ -30,11 +30,12 @@ from datasets import KITTIDepthDataset
 from datasets import MCDataset
 import networks
 from utils.logger import TermLogger,AverageMeter
+from SoftHistogram2D.soft_hist import SoftHistogram2D_H
 
 class Trainer:
     def __init__(self, options):
         self.opt = options
-        self.checkpoints_path = Path('checkpoints')/datetime.datetime.now().strftime("%m-%d-%H:%M")
+        self.checkpoints_path = Path(self.opt.log_dir)/datetime.datetime.now().strftime("%m-%d-%H:%M")
         #save model and events
 
 
@@ -95,9 +96,9 @@ class Trainer:
         if self.opt.load_weights_folder is not None:
             self.load_model()
 
-        print("Training model named:\n  ", self.opt.model_name)
-        print("Models and tensorboard events files are saved to:\n  ", self.opt.log_dir)
-        print("Training is using:\n  ", self.device)
+        print("Training model named:\t  ", self.opt.model_name)
+        print("Models and tensorboard events files are saved to:\t  ", self.opt.log_dir)
+        print("Training is using:\t  ", self.device)
 
         # datasets setting
         datasets_dict = {"kitti": KITTIRAWDataset,
@@ -175,7 +176,7 @@ class Trainer:
         self.depth_metric_names = [
             "de/abs_rel", "de/sq_rel", "de/rms", "de/log_rms", "da/a1", "da/a2", "da/a3"]
 
-        print("Using split:\n  ", self.opt.split)
+        print("Using split:\t  ", self.opt.split)
         print("There are {:d} training items and {:d} validation items\n".format(
             len(train_dataset), len(val_dataset)))
 
@@ -189,6 +190,14 @@ class Trainer:
         self.logger.reset_epoch_bar()
 
         self.metrics = {}
+
+
+        self.histc_loss = [SoftHistogram2D_H(self.device,bins=int(self.opt.height/2),min=0,max=1,sigma=512,b=1,c=1,h=self.opt.height,w = self.opt.width),
+                           SoftHistogram2D_H(self.device, bins=int(self.opt.height/4), min=0, max=1, sigma=512, b=1, c=1,h=int(self.opt.height/2), w=int(self.opt.width/2)),
+                           SoftHistogram2D_H(self.device, bins=int(self.opt.height/8), min=0, max=1, sigma=512, b=1, c=1,h=int(self.opt.height/4), w=int(self.opt.width/4)),
+                           SoftHistogram2D_H(self.device, bins=int(self.opt.height/16), min=0, max=1, sigma=512, b=1, c=1,h=int(self.opt.height/8), w=int(self.opt.width/8))
+                            ]
+
 
 
     def set_train(self):
@@ -217,8 +226,39 @@ class Trainer:
             # Otherwise, we only feed the image with frame_id 0 through the depth encoder
             # 关于output是由depth model来构型的
             # outputs only have disp 0,1,2,3
-        features = self.models["encoder"](inputs["color_aug", 0, 0])
-        outputs = self.models["depth"](features)
+
+        if not self.opt.geometry_loss_enable:
+            features = self.models["encoder"](inputs["color_aug", 0, 0])
+            outputs = self.models["depth"](features)
+            outputs[("disp", 0, 0)] = outputs[("disp", 0)]
+            outputs[("disp", 0, 1)] = outputs[("disp", 1)]
+            outputs[("disp", 0, 2)] = outputs[("disp", 2)]
+            outputs[("disp", 0, 3)] = outputs[("disp", 3)]
+        else:
+            features = self.models["encoder"](inputs["color_aug", 0, 0])
+            features_m1 = self.models["encoder"](inputs["color_aug", -1, 0])
+            features_1 = self.models["encoder"](inputs["color_aug", 1, 0])
+
+            outputs_m1 = self.models["depth"](features_m1)
+            outputs_0 = self.models["depth"](features)
+            outputs_1 = self.models["depth"](features_1)
+            outputs={}
+            outputs[("disp",-1,0)] = outputs_m1[("disp",0)]
+            #outputs[("disp",-1,1)] = outputs_m1[("disp",1)]
+            #outputs[("disp",-1,2)] = outputs_m1[("disp",2)]
+            #outputs[("disp",-1,3)] = outputs_m1[("disp",3)]
+
+
+            outputs[("disp",0,0)] = outputs_0[("disp",0)]
+            outputs[("disp",0,1)] = outputs_0[("disp",1)]
+            outputs[("disp",0,2)] = outputs_0[("disp",2)]
+            outputs[("disp",0,3)] = outputs_0[("disp",3)]
+
+
+            outputs[("disp",1,0)] = outputs_1[("disp",0)]
+            #outputs[("disp",1,1)] = outputs_1[("disp",1)]
+            #outputs[("disp",1,2)] = outputs_1[("disp",2)]
+            #outputs[("disp",1,3)] = outputs_1[("disp",3)]
 
 
         #2. mask
@@ -283,15 +323,31 @@ class Trainer:
         Generated images are saved into the `outputs` dictionary as color_identity.
         """
         for scale in self.opt.scales:
-            disp = outputs[("disp", scale)]
+            # get depth
+            if self.opt.geometry_loss_enable:
+                for frame_id in self.opt.frame_ids:
+                    disp_key = ("disp",frame_id,scale)
+                    depth_key = ("depth",frame_id,scale)
+                    if disp_key in outputs.keys():
+                        disp = outputs[disp_key]
+                        disp = F.interpolate(
+                            disp, [self.opt.height, self.opt.width], mode="bilinear", align_corners=False)
+                        source_scale = 0
 
-            disp = F.interpolate(
-                    disp, [self.opt.height, self.opt.width], mode="bilinear", align_corners=False)
-            source_scale = 0
+                        _, depth = disp_to_depth(disp, self.opt.min_depth, self.opt.max_depth)
 
-            _, depth = disp_to_depth(disp, self.opt.min_depth, self.opt.max_depth)
+                        outputs[depth_key] = depth
 
-            outputs[("depth", 0, scale)] = depth
+            else:
+                disp = outputs[("disp", 0,scale)]
+
+                disp = F.interpolate(
+                        disp, [self.opt.height, self.opt.width], mode="bilinear", align_corners=False)
+                source_scale = 0
+
+                _, depth = disp_to_depth(disp, self.opt.min_depth, self.opt.max_depth)
+
+                outputs[("depth", 0, scale)] = depth
 
             for i, frame_id in enumerate(self.opt.frame_ids[1:]):
 
@@ -308,10 +364,18 @@ class Trainer:
 
                 outputs[("sample", frame_id, scale)] = pix_coords#rigid_flow
 
-                temp= F.grid_sample(inputs[("color", frame_id, source_scale)],
+                outputs[("color", frame_id, scale)]= F.grid_sample(inputs[("color", frame_id, source_scale)],
                                                                     outputs[("sample", frame_id, scale)],
                                                                     padding_mode="border")
-                outputs[("color", frame_id, scale)] = temp
+                #output"color" 就是i-warped
+
+                #add a depth warp
+
+                if self.opt.geometry_loss_enable:
+                    outputs[("depth_warp",frame_id,scale)] = F.grid_sample(outputs[("depth",frame_id,source_scale)],
+                                                                       outputs[("sample", frame_id, scale)],
+                                                                       padding_mode="border")
+
 
                 outputs[("color_identity", frame_id, scale)] = inputs[("color", frame_id, source_scale)]
 
@@ -328,6 +392,12 @@ class Trainer:
 
         return reprojection_loss#[b,1,h,w]
 
+    def compute_geometry_loss(self,pred_depth,depth_warp):
+        diff_depth = ((pred_depth - depth_warp).abs() /
+                      (pred_depth + depth_warp).abs()).clamp(0, 1)
+
+
+        return diff_depth
     #5.
     def compute_losses(self, inputs, outputs):
         """Compute the reprojection and smoothness losses for a minibatch
@@ -338,18 +408,28 @@ class Trainer:
         for scale in self.opt.scales:
             loss = 0
             reprojection_losses = []
+            geometry_losses = []
 
             source_scale = 0
 
-            disp = outputs[("disp", scale)]
+            disp = outputs[("disp", 0,scale)]
             color = inputs[("color", 0, scale)]#??
             target = inputs[("color", 0, source_scale)]
+            pred_depth = outputs[("depth", 0, scale)]
 
             for frame_id in self.opt.frame_ids[1:]:#前一帧,后一帧,两次计算
                 pred = outputs[("color", frame_id, scale)]
                 reprojection_losses.append(self.compute_reprojection_loss(pred, target))
+            reprojection_losses = torch.cat(reprojection_losses, 1)# list b,1,h,w  to b2hw
 
-            reprojection_losses = torch.cat(reprojection_losses, 1)
+
+            #nips 2019
+            if self.opt.geometry_loss_enable:
+                for frame_id in self.opt.frame_ids[1:]:
+                    depth_warp = outputs[("depth_warp", frame_id, scale)]
+                    geometry_losses.append(self.compute_geometry_loss(depth_warp,pred_depth))
+                geometry_losses = torch.cat(geometry_losses, 1)
+
 
 
             #auto masking Enable/Disable
@@ -370,7 +450,7 @@ class Trainer:
             reprojection_loss = reprojection_losses
 
 
-                # add random numbers to break ties
+            # add random numbers to break ties
             identity_reprojection_loss += torch.randn(identity_reprojection_loss.shape).cuda() * 0.00001
 
             combined = torch.cat((identity_reprojection_loss, reprojection_loss), dim=1)
@@ -389,12 +469,24 @@ class Trainer:
 
             mean_disp = disp.mean(2, True).mean(3, True)
             norm_disp = disp / (mean_disp + 1e-7)
-            smooth_loss = get_smooth_loss(norm_disp, color)
 
-            loss += self.opt.disparity_smoothness * smooth_loss / (2 ** scale)
-            total_loss += loss
-            losses["loss/{}".format(scale)] = loss
 
+            if self.opt.disparity_smoothness !=0:
+                smooth_loss = get_smooth_loss(norm_disp, color)#b1hw,b3hw
+                loss_s = self.opt.disparity_smoothness * smooth_loss / (2 ** scale)
+                losses["loss_s/{}".format(scale)] = loss_s
+            else:
+                loss_s=0
+
+            if self.opt.histc_weights!=0:
+                histc_loss = get_hitc_loss(self.histc_loss[scale],norm_disp)
+                loss_h = self.opt.histc_weights * histc_loss/(2**scale)
+                losses["loss_h/{}".format(scale)] = loss_h
+            else:
+                loss_h=0
+
+            total_loss += loss+loss_s+loss_h
+            losses["loss/{}".format(scale)] =  loss
         total_loss /= self.num_scales
         losses["loss"] = total_loss#mean of 4 scales
         return losses
@@ -471,7 +563,7 @@ class Trainer:
 
                     writer.add_image(
                         "disp_{}/{}".format(s, j),
-                        normalize_image(outputs[("disp", s)][j]), self.step)
+                        normalize_image(outputs[("disp", 0,s)][j]), self.step)
 
 
 
@@ -487,7 +579,7 @@ class Trainer:
             os.makedirs(models_dir)
         to_save = self.opt.__dict__.copy()
 
-        with open(os.path.join(models_dir, 'opt.json'), 'w') as f:
+        with open(os.path.join(self.checkpoints_path, 'opt.json'), 'w') as f:
             json.dump(to_save, f, indent=2)
 
     def save_model(self):

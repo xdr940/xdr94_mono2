@@ -11,36 +11,25 @@ import matplotlib.pyplot as plt
 from .mono_dataset import MonoDataset
 
 
-class MCDataset(MonoDataset):
+class VSDataset(MonoDataset):
     def __init__(self,*args,**kwargs):
-        super(MCDataset,self).__init__(*args,**kwargs)
+        super(VSDataset,self).__init__(*args,**kwargs)
 
         #self.full_res_shape = [1920,1080]#
+        self.full_res_shape = [800,600]#
 
 
         #FOV = 35d
-        #960 = 1920/2
+
         #960/fx = tan 35 =0.7-> fx = 1371
 
         # 1920 * k[0] = 1371-> k0 = 0.714
         # 1080 * k[1 ]= 1371 -> k1 = 1.27
-        #self.K=np.array([[0.714, 0, 0.5, 0],
-        #                   [0, 1.27, 0.5, 0],
-        #                   [0, 0, 1, 0],
-        #                   [0, 0, 0, 1]], dtype=np.float32)
-
-
-
-
-        self.full_res_shape = [800,600]#
-
-        #400/ fx = tan 35 =0.7 --> fx =571.428
-        #800 * k[0] = 571.428 ->> k0 = 0.714
-        #600* k1 = 571.428, k1 =0.952
-        self.K = np.array([[0.714, 0, 0.5, 0],
-                           [0, 0.952, 0.5, 0],
+        self.K=np.array([[0.714, 0, 0.5, 0],
+                           [0, 1.27, 0.5, 0],
                            [0, 0, 1, 0],
                            [0, 0, 0, 1]], dtype=np.float32)
+
 
         self.img_ext='.png'
         self.depth_ext = '.png'

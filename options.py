@@ -20,14 +20,14 @@ class MonodepthOptions:
         self.parser.add_argument("--data_path",
                                  type=str,
                                  help="path to the training data",
-                                 #default='/home/roit/datasets/kitti/')
-                                 default="/home/roit/datasets/MC")
+                                 default='/home/roit/datasets/kitti/')
+                                 #default="/home/roit/datasets/MC")
         self.parser.add_argument("--log_dir",
                                  type=str,
                                  help="log directory",
                                  #default=os.path.join(os.path.expanduser("~"), "tmp"))
-                                 default='checkpoints')
-        self.parser.add_argument('--root',type=str,default='/home/roit/aws/aprojects/monodepth2_pt')
+                                 default='/media/roit/hard_disk_2/Models/monodepth2/checkpoints')
+        self.parser.add_argument('--root',type=str,default='/home/roit/aws/aprojects/xdr94_mono2')
 
         # TRAINING options
         self.parser.add_argument("--model_name",
@@ -38,7 +38,7 @@ class MonodepthOptions:
                                  type=str,
                                  help="which training split to use",
                                  choices=["eigen_zhou", "custom",'custom_small',"eigen_full", "odom", "benchmark","mc"],
-                                 default="mc")
+                                 default="custom_small")
         self.parser.add_argument("--num_layers",
                                  type=int,
                                  help="number of resnet layers",
@@ -47,7 +47,7 @@ class MonodepthOptions:
         self.parser.add_argument("--dataset",
                                  type=str,
                                  help="dataset to train on",
-                                 default="mc",
+                                 default="kitti",
                                  choices=["kitti", "kitti_odom", "kitti_depth", "kitti_test","mc"])
         self.parser.add_argument("--png",
                                  help="if set, trains from raw KITTI png files (instead of jpgs)",
@@ -55,10 +55,12 @@ class MonodepthOptions:
                                  action="store_true")
         self.parser.add_argument("--height",type=int,help="input image height",default=192)
         self.parser.add_argument("--width",type=int,help="input image width",default=640)
-        self.parser.add_argument("--full_height",type=int,default=600)
-        self.parser.add_argument("--full_width",type=int,default=800)
+        self.parser.add_argument("--full_height",type=int,default=375)
+        self.parser.add_argument("--full_width",type=int,default=1242)
 
         self.parser.add_argument("--disparity_smoothness",type=float,help="disparity smoothness weight",default=1e-3)
+        self.parser.add_argument("--histc_weights",type=float,help="disparity smoothness weight",default=0)
+
         self.parser.add_argument("--scales",nargs="+",type=int,help="scales used in the loss",default=[0, 1, 2, 3])
 
         self.parser.add_argument("--min_depth",type=float,help="minimum depth",default=0.1)#这里度量就代表m
@@ -68,12 +70,13 @@ class MonodepthOptions:
         self.parser.add_argument("--frame_ids",nargs="+",type=int,help="frames to load",default=[0, -1, 1])
 
         # OPTIMIZATION options
-        self.parser.add_argument("--batch_size",type=int,help="batch size",default=12)#
+        self.parser.add_argument("--batch_size",type=int,help="batch size",default=8)#
         self.parser.add_argument("--learning_rate",type=float,help="learning rate",default=1e-4)
         self.parser.add_argument("--num_epochs",type=int,help="number of epochs",default=20)
         self.parser.add_argument("--scheduler_step_size",type=int,help="step size of the scheduler",default=15)
 
         # ABLATION options
+        self.parser.add_argument("--geometry_loss_enable",default=True)
 
         #self.parser.add_argument("--automasking",
         #                         default=True,
@@ -129,8 +132,8 @@ class MonodepthOptions:
         # LOADING options
         self.parser.add_argument("--load_weights_folder",
                                  type=str,
-                                 #default='/home/roit/models/monodepth2/mono_640x192',
-                                 default=None,
+                                 default='/home/roit/models/monodepth2/mono_640x192',
+                                 #default=None,
                                  help="name of model to load")
         self.parser.add_argument("--models_to_load",
                                  nargs="+",
@@ -149,7 +152,7 @@ class MonodepthOptions:
                                  default=1)
 
         # EVALUATION options
-        self.parser.add_argument("--depth_eval_path",default='/home/roit/aws/aprojects/xdr94_mono2/checkpoints/12-16-17:24/models/weights_11')
+        self.parser.add_argument("--depth_eval_path",default='/media/roit/hard_disk_2/Models/monodepth2/checkpoints/12-17-23:15/models/weights_19')
 
         self.parser.add_argument("--eval_stereo",
                                  help="if set evaluates in stereo mode",
@@ -170,8 +173,8 @@ class MonodepthOptions:
         #                         help="optional path to a .npy disparities file to evaluate")
         self.parser.add_argument("--eval_split",
                                  type=str,
-                                 default="eigen",#eigen
-                                 choices=["eigen", "eigen_benchmark", "benchmark", "odom_9", "odom_10","custom"],
+                                 default="mc",#eigen
+                                 choices=["eigen", "eigen_benchmark", "benchmark", "odom_9", "odom_10","custom","mc"],
                                  help="which split to run eval on")
         self.parser.add_argument("--save_pred_disps",
                                  help="if set saves predicted disparities",

@@ -1,10 +1,8 @@
-print('{:.1f}'.format(float(1.234567891011)))
 
 
-t = {}
+output={}
 
-import numpy as np
+output[("a",1,1)] = 100
 
-a = np.array([1.1234])
-
-print(float(a))
+print(output)
+print(output.has_key(("b",2,1)))

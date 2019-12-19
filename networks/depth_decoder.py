@@ -63,3 +63,4 @@ class DepthDecoder(nn.Module):
                 self.outputs[("disp", i)] = self.sigmoid(self.convs[("dispconv", i)](x))
 
         return self.outputs
+

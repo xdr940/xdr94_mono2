@@ -196,7 +196,7 @@ def upsample(x):
     return F.interpolate(x, scale_factor=2, mode="nearest")
 
 
-def get_smooth_loss(disp, img):
+def get_smooth_loss(disp, img):#bchw
     """Computes the smoothness loss for a disparity image
     The color image is used for edge-aware smoothness
     """
@@ -211,6 +211,14 @@ def get_smooth_loss(disp, img):
 
     return grad_disp_x.mean() + grad_disp_y.mean()
 
+def get_hitc_loss(func,disp):
+    hmap = func(disp)
+    zeros = torch.zeros_like(hmap)
+    #mean = hmap.mean(3).mean(2)
+    mean = hmap.mean()
+    min = hmap.min()
+    zeros[(hmap<mean)*(hmap>min)] = 1.
+    return zeros.sum()/zeros.shape[-1]/zeros.shape[-2]
 
 class SSIM(nn.Module):
     """Layer to compute the SSIM loss between a pair of images
