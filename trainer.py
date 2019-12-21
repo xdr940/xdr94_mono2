@@ -437,15 +437,11 @@ class Trainer:
             for frame_id in self.opt.frame_ids[1:]:
                 pred = inputs[("color", frame_id, source_scale)]
                 identity_reprojection_losses.append(self.compute_reprojection_loss(pred, target))# total [b,2,h,w], 2 means pred frame and post frame
-                #直接用相邻帧做损失
-            identity_reprojection_losses = torch.cat(identity_reprojection_losses, 1)
+                #直接用相邻帧做损失, loss很小的地方说明后三种静止
+            identity_reprojection_losses = torch.cat(identity_reprojection_losses, 1)#list2batch
 
 
             identity_reprojection_loss = identity_reprojection_losses
-
-
-
-
             #avg reprojection loss Enable/Disable
             reprojection_loss = reprojection_losses
 
@@ -455,13 +451,17 @@ class Trainer:
 
             combined = torch.cat((identity_reprojection_loss, reprojection_loss), dim=1)
 
+            # \hat{I}_{t-1}, I_t, \hat{I}_{t+1} --> reprojection_loss
+            # I_{t-1}, I_t, I_{t+1} --> identity_reprojection_loss
 
 
             to_optimise, idxs = torch.min(combined, dim=1)#idxs standsfor which layer of 4 is minimum of tensor in dimension 1
-
+            # 0,1,2,3; 0,1是实值图像, 2,3是合成图像的索引
 
 
             outputs["identity_selection/{}".format(scale)] = (idxs > 1).float()
+            #将合成图像,loss更小的位置,置一, 这些地方属于前三种匹配;
+            #如果实值图像连续帧匹配loss更小, 说明后三种静止, 这些像素不处理, 置零
                 # 只是输出， 该地址的数据并不参与计算
                 # 只记录来自2,3 即reprojection loss的地方,这写地方为min 且被选中意味着前两种匹配(不包括out of view与occluded pixels),此作为identity_mask
                 # 0,1部分代表identity_reprojection loss, 通过两张相邻帧算出,如果min来自这里意味着后三种静止
