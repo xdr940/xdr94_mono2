@@ -20,46 +20,58 @@ class MonodepthOptions:
         self.parser.add_argument("--data_path",
                                  type=str,
                                  help="path to the training data",
-                                 default='/home/roit/datasets/kitti/')
-                                 #default="/home/roit/datasets/MC")
+                                 #default='/home/roit/datasets/kitti/')
+                                 default="/home/roit/datasets/MC")
         self.parser.add_argument("--log_dir",
                                  type=str,
                                  help="log directory",
-                                 #default=os.path.join(os.path.expanduser("~"), "tmp"))
                                  default='/media/roit/hard_disk_2/Models/monodepth2/checkpoints')
+
         self.parser.add_argument('--root',type=str,default='/home/roit/aws/aprojects/xdr94_mono2')
 
         # TRAINING options
-        self.parser.add_argument("--model_name",
-                                 type=str,
-                                 help="the name of the folder to save the model in",
-                                 default="mdp")
+
         self.parser.add_argument("--split",
                                  type=str,
                                  help="which training split to use",
-                                 choices=["eigen_zhou", "custom",'custom_small',"eigen_full", "odom", "benchmark","mc"],
-                                 default="custom_small")
+                                 choices=["eigen_zhou", "custom",'custom_small',"eigen_full", "odom", "benchmark","mc","mc_small"],
+                                 #default="custom_small")
+                                 default="mc_small")
+
+        self.parser.add_argument("--dataset",
+                                 type=str,
+                                 help="dataset to train on",
+                                 default="mc",
+                                 #default='kitti',
+                                 choices=["kitti", "kitti_odom", "kitti_depth", "kitti_test", "mc"])
+
+
         self.parser.add_argument("--num_layers",
                                  type=int,
                                  help="number of resnet layers",
                                  default=18,
                                  choices=[18, 34, 50, 101, 152])
-        self.parser.add_argument("--dataset",
+        self.parser.add_argument("--model_name",
                                  type=str,
-                                 help="dataset to train on",
-                                 default="kitti",
-                                 choices=["kitti", "kitti_odom", "kitti_depth", "kitti_test","mc"])
+                                 help="the name of the folder to save the model in",
+                                 default="mdp")
         self.parser.add_argument("--png",
                                  help="if set, trains from raw KITTI png files (instead of jpgs)",
                                  default=True,
                                  action="store_true")
         self.parser.add_argument("--height",type=int,help="input image height",default=192)
         self.parser.add_argument("--width",type=int,help="input image width",default=640)
-        self.parser.add_argument("--full_height",type=int,default=375)
-        self.parser.add_argument("--full_width",type=int,default=1242)
+        self.parser.add_argument("--full_height",type=int,
+                                 #default=375)
+                                 default = 600)
 
-        self.parser.add_argument("--disparity_smoothness",type=float,help="disparity smoothness weight",default=1e-3)
+        self.parser.add_argument("--full_width",type=int,
+                                 #default=1242)
+                                 default = 800)
+
+        self.parser.add_argument("--disparity_smoothness",type=float,help="disparity smoothness weight",default=0)
         self.parser.add_argument("--histc_weights",type=float,help="disparity smoothness weight",default=0)
+        self.parser.add_argument("--geometry_loss_weights",default=1.,type=float)
 
         self.parser.add_argument("--scales",nargs="+",type=int,help="scales used in the loss",default=[0, 1, 2, 3])
 
@@ -76,7 +88,7 @@ class MonodepthOptions:
         self.parser.add_argument("--scheduler_step_size",type=int,help="step size of the scheduler",default=15)
 
         # ABLATION options
-        self.parser.add_argument("--geometry_loss_enable",default=True)
+        self.parser.add_argument("--softmin",default=True)
 
         #self.parser.add_argument("--automasking",
         #                         default=True,
@@ -144,8 +156,8 @@ class MonodepthOptions:
         # LOGGING options
         self.parser.add_argument("--tb_log_frequency",
                                  type=int,
-                                 help="number of batches between each tensorboard log",
-                                 default=1)
+                                 help="number of batches(step) between each tensorboard log",
+                                 default=5)
         self.parser.add_argument("--weights_save_frequency",
                                  type=int,
                                  help="number of epochs between each save",

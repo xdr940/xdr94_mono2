@@ -116,16 +116,16 @@ def test_simple(args):
         features = encoder(input_image)#a list from 0 to 4
         outputs = depth_decoder(features)# dict , 4 disptensor
         cnt+=1
-        disp = outputs[("disp", 0,0)]# has a same size with input
+        disp = outputs[("disp", 0)]# has a same size with input
         disp_resized = torch.nn.functional.interpolate(
             disp, (original_height, original_width), mode="bilinear", align_corners=False)
 
         # Saving numpy file
+        #if args.out_name=='num':
         if args.txt_style=='eigen' or args.txt_style=='custom':
-            output_name = str(image_path).split('/')[-4]+'_{:03d}'.format(int(image_path.stem))
+            output_name = str(image_path).split('/')[-4]+'_{}'.format(image_path.stem)
         else:
             output_name = str(image_path).split('/')[-3]+'_{}'.format(image_path.stem)
-
 
 
         if args.npy_out:

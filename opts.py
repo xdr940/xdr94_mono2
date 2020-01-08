@@ -5,9 +5,15 @@ def parse_args_run_from_txt():
     parser = argparse.ArgumentParser(
         description='Simple testing funtion for Monodepthv2 models.')
 
-    parser.add_argument('--image_path', type=str,default='/home/roit/datasets/MC',help='path to a test image or folder of images')
-    parser.add_argument("--txt_style",default='mc',choices=['custom','mc','visdrone','eigen'])
-    parser.add_argument('--out_path', type=str,default='mc_test_out',help='path to a test image or folder of images')
+    parser.add_argument('--image_path', type=str,
+                        #default='/home/roit/datasets/MC',
+                        default='/home/roit/datasets/kitti',
+                        help='path to a test image or folder of images')
+    parser.add_argument("--txt_style",
+                        #default='mc',
+                        default='eigen',
+                        choices=['custom','mc','visdrone','eigen','mc_small'])
+    parser.add_argument('--out_path', type=str,default='eigen_test_out',help='path to a test image or folder of images')
     parser.add_argument('--npy_out',default=False)
     parser.add_argument('--model_name', type=str,
                         help='name of a pretrained model to use',
