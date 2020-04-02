@@ -522,7 +522,7 @@ class Trainer:
             mo_ob = (var < 0.001)
             final_selection = identity_selection*(1.-mo_ob)
 
-            to_optimise = to_optimise*final_selection
+            to_optimise = to_optimise*final_selection.float()
             outputs["identity_selection/{}".format(scale)] = identity_selection.float()
 
             outputs["mo_ob/{}".format(scale)] =mo_ob.float()
@@ -1979,6 +1979,19 @@ class Trainer:
                         writer.add_image(
                             "automask_g{}/{}".format(s,j),
                             outputs["identity_selection_g/{}".format(s)][j][None, ...], self.step)
+
+                    if "mo_ob/{}".format(s) in outputs.keys():
+                        img = tensor2array(outputs["mo_ob/{}".format(s)][j],colormap='bone')
+                        writer.add_image(
+                                "mo_ob_{}/{}".format(s, j),
+                                #outputs["identity_selection/{}".format(s)][j][None, ...], self.step)
+                                img, self.step)#add 1,h,w
+                    if "final_selection/{}".format(s) in outputs.keys():
+                        img = tensor2array(outputs["final_selection/{}".format(s)][j],colormap='bone')
+                        writer.add_image(
+                                "final_selection_{}/{}".format(s, j),
+                                #outputs["identity_selection/{}".format(s)][j][None, ...], self.step)
+                                img, self.step)#add 1,h,w
 
 
     def save_opts(self):
