@@ -20,8 +20,8 @@ class MonodepthOptions:
         self.parser.add_argument("--data_path",
                                  type=str,
                                  help="path to the training data",
-                                 #default='/home/roit/datasets/kitti/')
-                                 default="/home/roit/datasets/MC")
+                                 default='/home/roit/datasets/kitti/')
+                                 #default="/home/roit/datasets/MC")
         self.parser.add_argument("--log_dir",
                                  type=str,
                                  help="log directory",
@@ -35,14 +35,14 @@ class MonodepthOptions:
                                  type=str,
                                  help="which training split to use",
                                  choices=["eigen_zhou", "custom",'custom_small',"eigen_full", "odom", "benchmark","mc","mc_small"],
-                                 #default="custom_small")
-                                 default="mc_small")
+                                 default="custom_small")
+                                 #default="mc_small")
 
         self.parser.add_argument("--dataset",
                                  type=str,
                                  help="dataset to train on",
-                                 default="mc",
-                                 #default='kitti',
+                                 #default="mc",
+                                 default='kitti',
                                  choices=["kitti", "kitti_odom", "kitti_depth", "kitti_test", "mc"])
 
 
@@ -62,21 +62,21 @@ class MonodepthOptions:
         self.parser.add_argument("--height",type=int,help="input image height",default=192)
         self.parser.add_argument("--width",type=int,help="input image width",default=640)
         self.parser.add_argument("--full_height",type=int,
-                                 #default=375)
-                                 default = 600)
+                                 default=375)
+                                 #default = 600)
 
         self.parser.add_argument("--full_width",type=int,
-                                 #default=1242)
-                                 default = 800)
+                                 default=1242)
+                                 #default = 800)
 
-        self.parser.add_argument("--disparity_smoothness",type=float,help="disparity smoothness weight",default=0)
+        self.parser.add_argument("--disparity_smoothness",type=float,help="disparity smoothness weight",default=0.1)
         self.parser.add_argument("--histc_weights",type=float,help="disparity smoothness weight",default=0)
-        self.parser.add_argument("--geometry_loss_weights",default=1.,type=float)
+        self.parser.add_argument("--geometry_loss_weights",default=0.,type=float)
 
         self.parser.add_argument("--scales",nargs="+",type=int,help="scales used in the loss",default=[0, 1, 2, 3])
 
         self.parser.add_argument("--min_depth",type=float,help="minimum depth",default=0.1)#这里度量就代表m
-        self.parser.add_argument("--max_depth",type=float,help="maximum depth",default=100.0)
+        self.parser.add_argument("--max_depth",type=float,help="maximum depth",default=80.0)
 
         #self.parser.add_argument("--use_stereo",help="if set, uses stereo pair for training",action="store_true")
         self.parser.add_argument("--frame_ids",nargs="+",type=int,help="frames to load",default=[0, -1, 1])
@@ -88,7 +88,7 @@ class MonodepthOptions:
         self.parser.add_argument("--scheduler_step_size",type=int,help="step size of the scheduler",default=15)
 
         # ABLATION options
-        self.parser.add_argument("--softmin",default=True)
+        self.parser.add_argument("--softmin",default=False)
 
         #self.parser.add_argument("--automasking",
         #                         default=True,
