@@ -270,7 +270,7 @@ class Trainer:
 
         #4.
         self.generate_images_pred(inputs, outputs)#outputs get
-        losses = self.compute_losses(inputs, outputs)
+        losses = self.compute_losses_f(inputs, outputs)
 
         return outputs, losses
 
@@ -466,6 +466,85 @@ class Trainer:
         losses["loss"] = total_loss
         return losses
 
+    def compute_losses_f(self, inputs, outputs):
+        """通过var 计算移动物体
+        """
+        losses = {}
+        total_loss = 0
+
+        for scale in self.opt.scales:
+            loss = 0
+            reprojection_losses = []
+
+            source_scale = 0
+
+            disp = outputs[("disp", 0, scale)]
+            color = inputs[("color", 0, scale)]
+            target = inputs[("color", 0, source_scale)]
+
+            for frame_id in self.opt.frame_ids[1:]:
+                pred = outputs[("color", frame_id, scale)]
+                reprojection_losses.append(self.compute_reprojection_loss(pred, target))
+
+            reprojection_losses = torch.cat(reprojection_losses, 1)
+
+            identity_reprojection_losses = []
+            for frame_id in self.opt.frame_ids[1:]:
+                pred = inputs[("color", frame_id, source_scale)]
+                identity_reprojection_losses.append(
+                    self.compute_reprojection_loss(pred, target))
+
+            identity_reprojection_losses = torch.cat(identity_reprojection_losses, 1)
+
+            identity_reprojection_loss = identity_reprojection_losses
+
+            reprojection_loss = reprojection_losses
+
+            # add random numbers to break ties# 花书p149 向输入添加方差极小的噪声等价于 对权重施加范数惩罚
+            identity_reprojection_loss += torch.randn(
+                identity_reprojection_loss.shape).cuda() * 0.00001
+
+            combined = torch.cat((identity_reprojection_loss, reprojection_loss), dim=1)
+
+            #rewrite
+#-------------------------
+
+            to_optimise, idxs = torch.min(combined, dim=1)#b,rho,h,w
+
+
+
+            norm_combined=  torch.softmax(combined, dim=1)  #normalization
+
+            var = norm_combined.var(dim=1)
+            #to_optimise = combined * var
+
+            identity_selection = (idxs > identity_reprojection_loss.shape[1] - 1)
+            mo_ob = (var < 0.001)
+            final_selection = identity_selection*(1.-mo_ob)
+
+            to_optimise = to_optimise*final_selection
+            outputs["identity_selection/{}".format(scale)] = identity_selection.float()
+
+            outputs["mo_ob/{}".format(scale)] =mo_ob.float()
+
+            outputs["final_selection/{}".format(scale)] = final_selection.float()
+
+#---------------------
+
+
+            loss += to_optimise.mean()
+
+            mean_disp = disp.mean(2, True).mean(3, True)
+            norm_disp = disp / (mean_disp + 1e-7)
+            smooth_loss = get_smooth_loss(norm_disp, color)
+
+            loss += self.opt.disparity_smoothness * smooth_loss / (2 ** scale)
+            total_loss += loss
+            losses["loss/{}".format(scale)] = loss
+
+        total_loss /= self.num_scales
+        losses["loss"] = total_loss
+        return losses
     def compute_losses_1(self, inputs, outputs):
         """
         softmin and hardmin, first works better!
