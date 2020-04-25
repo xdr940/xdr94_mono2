@@ -39,7 +39,7 @@ class ResNetMultiImageInput(models.ResNet):
                 nn.init.constant_(m.bias, 0)
 
 
-def resnet_multiimage_input(num_layers, pretrained=False, num_input_images=1):
+def resnet_multiimage_input(num_layers, pretrained=False, num_input_images=1,pretrained_folder=None):
     """Constructs a ResNet model.
     Args:
         num_layers (int): Number of resnet layers. Must be 18 or 50
@@ -50,19 +50,21 @@ def resnet_multiimage_input(num_layers, pretrained=False, num_input_images=1):
     blocks = {18: [2, 2, 2, 2], 50: [3, 4, 6, 3]}[num_layers]
     block_type = {18: models.resnet.BasicBlock, 50: models.resnet.Bottleneck}[num_layers]
     model = ResNetMultiImageInput(block_type, blocks, num_input_images=num_input_images)
-
     if pretrained:
-        loaded = model_zoo.load_url(models.resnet.model_urls['resnet{}'.format(num_layers)])
-        loaded['conv1.weight'] = torch.cat(
-            [loaded['conv1.weight']] * num_input_images, 1) / num_input_images
+        if pretrained_folder==None:
+            loaded = model_zoo.load_url(models.resnet.model_urls['resnet{}'.format(num_layers)])
+        else:
+            loaded = torch.load(pretrained_folder)
+        loaded['conv1.weight'] = torch.cat([loaded['conv1.weight']] * num_input_images, 1) / num_input_images
         model.load_state_dict(loaded)
+
     return model
 
 
 class ResnetEncoder(nn.Module):
     """Pytorch module for a resnet encoder
     """
-    def __init__(self, num_layers, pretrained, num_input_images=1):
+    def __init__(self, num_layers, pretrained, num_input_images=1,encoder_path=None):
         super(ResnetEncoder, self).__init__()
 
         self.num_ch_enc = np.array([64, 64, 128, 256, 512])
@@ -77,9 +79,16 @@ class ResnetEncoder(nn.Module):
             raise ValueError("{} is not a valid number of resnet layers".format(num_layers))
 
         if num_input_images > 1:
-            self.encoder = resnet_multiimage_input(num_layers, pretrained, num_input_images)
+            self.encoder = resnet_multiimage_input(num_layers, pretrained, num_input_images,encoder_path)
         else:
-            self.encoder = resnets[num_layers](pretrained)
+            if encoder_path==None:
+                self.encoder = resnets[num_layers](pretrained)
+            else:
+                self.encoder = resnets[num_layers]()
+                self.encoder.load_state_dict(torch.load(encoder_path))
+
+
+
 
         if num_layers > 34:
             self.num_ch_enc[1:] *= 4

@@ -22,10 +22,10 @@ import networks
 from layers import disp_to_depth
 from utils.official import download_model_if_doesnt_exist
 
-from opts import parse_args_run_from_txt  as parse_args
-
+from options import run_infer_from_txt
+#parse_args_run_from_txt  as parse_args
 @torch.no_grad()
-def test_simple(args):
+def main(args):
     """Function to predict for a single image or folder of images
     """
     print(args.image_path)
@@ -145,5 +145,5 @@ def test_simple(args):
 
 
 if __name__ == '__main__':
-    args = parse_args()
-    test_simple(args)
+    options = run_infer_from_txt()
+    main(options.parse())

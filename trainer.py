@@ -5,7 +5,7 @@
 # available in the LICENSE file.
 
 from __future__ import absolute_import, division, print_function
-
+import datetime
 import numpy as np
 import time
 import datetime
@@ -16,7 +16,6 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from tensorboardX import SummaryWriter
-
 import json
 
 import matplotlib.pyplot as plt
@@ -36,7 +35,8 @@ from SoftHistogram2D.soft_hist import SoftHistogram2D_H
 class Trainer:
     def __init__(self, options):
         self.opt = options
-        self.checkpoints_path = Path(self.opt.log_dir)/datetime.datetime.now().strftime("%m-%d-%H:%M")
+        self.start_time = datetime.datetime.now().strftime("%m-%d-%H:%M")
+        self.checkpoints_path = Path(self.opt.log_dir)/self.start_time
         #save model and events
 
 
@@ -58,11 +58,18 @@ class Trainer:
         #self.use_pose_net = not (self.opt.use_stereo and self.opt.frame_ids == [0])
 
 
-
+#decoder and encoder
+        #depth encoder
+        print("depth encoder pretrained or scratch: "+self.opt.weights_init)
+        print("depth encoder load:"+self.opt.encoder_path)
         self.models["encoder"] = networks.ResnetEncoder(
-            self.opt.num_layers, self.opt.weights_init == "pretrained")
+            num_layers=self.opt.num_layers,
+            pretrained=self.opt.weights_init == "pretrained",
+            encoder_path=self.opt.encoder_path)
         self.models["encoder"].to(self.device)
         self.parameters_to_train += list(self.models["encoder"].parameters())
+
+        #depth decoder
 
         self.models["depth"] = networks.DepthDecoder(
             self.models["encoder"].num_ch_enc, self.opt.scales)
@@ -70,21 +77,24 @@ class Trainer:
         self.parameters_to_train += list(self.models["depth"].parameters())
 
         #if self.opt.pose_model_type == "separate_resnet":
+
+        #pose encoder
+        print("pose encoder pretrained or scratch: " + self.opt.weights_init)
+        print("pose encoder load:" + self.opt.encoder_path)
         self.models["pose_encoder"] = networks.ResnetEncoder(
                                         self.opt.num_layers,
                                         self.opt.weights_init == "pretrained",
-                                        num_input_images=self.num_pose_frames)
-
+                                        num_input_images=self.num_pose_frames,
+                                        encoder_path=self.opt.encoder_path)
         self.models["pose_encoder"].to(self.device)
         self.parameters_to_train += list(self.models["pose_encoder"].parameters())
 
+
+        #pose decoder
         self.models["pose"] = networks.PoseDecoder(
             self.models["pose_encoder"].num_ch_enc,
             num_input_features=1,
             num_frames_to_predict_for=2)
-
-
-
         self.models["pose"].to(self.device)
         self.parameters_to_train += list(self.models["pose"].parameters())
 
@@ -93,13 +103,16 @@ class Trainer:
         self.model_optimizer = optim.Adam(self.parameters_to_train, self.opt.learning_rate)
         self.model_lr_scheduler = optim.lr_scheduler.StepLR(
             self.model_optimizer, self.opt.scheduler_step_size, 0.1)
-
+#load model
         if self.opt.load_weights_folder is not None:
+            print("load model from {} instead pretrain".format(self.opt.load_weights_folder))
             self.load_model()
 
-        print("Training model named:\t  ", self.opt.model_name)
+
+        #print("Training model named:\t  ", self.opt.model_name)
         print("Models and tensorboard events files are saved to:\t  ", self.opt.log_dir)
         print("Training is using:\t  ", self.device)
+        print("start time: ",self.start_time)
 
         # datasets setting
         datasets_dict = {"kitti": KITTIRAWDataset,
@@ -193,11 +206,11 @@ class Trainer:
         self.metrics = {}
 
 
-        self.histc_loss = [SoftHistogram2D_H(self.device,bins=int(self.opt.height/2),min=0,max=1,sigma=512,b=1,c=1,h=self.opt.height,w = self.opt.width),
-                           SoftHistogram2D_H(self.device, bins=int(self.opt.height/4), min=0, max=1, sigma=512, b=1, c=1,h=int(self.opt.height/2), w=int(self.opt.width/2)),
-                           SoftHistogram2D_H(self.device, bins=int(self.opt.height/8), min=0, max=1, sigma=512, b=1, c=1,h=int(self.opt.height/4), w=int(self.opt.width/4)),
-                           SoftHistogram2D_H(self.device, bins=int(self.opt.height/16), min=0, max=1, sigma=512, b=1, c=1,h=int(self.opt.height/8), w=int(self.opt.width/8))
-                            ]
+       # self.histc_loss = [SoftHistogram2D_H(self.device,bins=int(self.opt.height/2),min=0,max=1,sigma=512,b=1,c=1,h=self.opt.height,w = self.opt.width),
+       #                    SoftHistogram2D_H(self.device, bins=int(self.opt.height/4), min=0, max=1, sigma=512, b=1, c=1,h=int(self.opt.height/2), w=int(self.opt.width/2)),
+       #                    SoftHistogram2D_H(self.device, bins=int(self.opt.height/8), min=0, max=1, sigma=512, b=1, c=1,h=int(self.opt.height/4), w=int(self.opt.width/4)),
+       #                    SoftHistogram2D_H(self.device, bins=int(self.opt.height/16), min=0, max=1, sigma=512, b=1, c=1,h=int(self.opt.height/8), w=int(self.opt.width/8))
+       #                     ]
 
 
 
@@ -504,32 +517,46 @@ class Trainer:
             identity_reprojection_loss += torch.randn(
                 identity_reprojection_loss.shape).cuda() * 0.00001
 
-            combined = torch.cat((identity_reprojection_loss, reprojection_loss), dim=1)
+            erro_maps = torch.cat((identity_reprojection_loss, reprojection_loss), dim=1)#b4hw
 
-            #rewrite
 #-------------------------
+            map_0, idxs_0 = torch.min(erro_maps, dim=1)  # b,4,h,w-->bhw,bhw
+            rhosvar = erro_maps.var(dim=1,unbiased=False)#bhw4 --> BHW
+            rhosvar_flat = rhosvar.flatten(start_dim=1)#B,H*W
 
-            to_optimise, idxs = torch.min(combined, dim=1)#b,rho,h,w
+            #rhosvar normalization
+            #max norm
+            #max,_ = rhosvar_flat.max(dim=1)#B
+            #rhosvar_flat = rhosvar_flat/max.unsqueeze(1)#b,hw / b,1 = b,h*w
+
+            #mean norm
+            median,_ = rhosvar_flat.median(dim=1)#b
+            rhosvar_flat /= median.unsqueeze(1)#b,1 / b,1
+
+            delta_var,_ = rhosvar_flat.median(dim=1)#B
+            var_mask = (rhosvar_flat > delta_var.unsqueeze(1)).reshape_as(rhosvar)
+
+            #final_selection =  var_mask.float()#rhosvar.float()
+            #final_selection = rhosvar*(1- var_mask.float()) + var_mask.float()
+            to_optimise = map_0 *var_mask.float()#loss map
+            #to_optimise = map_0 * var_mask.float()#loss map
+            #to_optimise = reprojection_loss.float()#loss map
 
 
 
-            norm_combined=  torch.softmax(combined, dim=1)  #normalization
+            outputs["to_optimise/{}".format(scale)] = to_optimise.float()
 
-            var = norm_combined.var(dim=1)
-            #to_optimise = combined * var
+            #outputs["rhosvar/{}".format(scale)] = 1- var_mask.float()
 
-            identity_selection = (idxs > identity_reprojection_loss.shape[1] - 1)
-            mo_ob = (var < 0.001)
-            final_selection = identity_selection*(1.-mo_ob)
 
-            to_optimise = to_optimise*final_selection.float()
-            outputs["identity_selection/{}".format(scale)] = identity_selection.float()
+            outputs["var_mask/{}".format(scale)] = var_mask.float()
+            #outputs["final_selection/{}".format(scale)] = final_selection
 
-            outputs["mo_ob/{}".format(scale)] =mo_ob.float()
 
-            outputs["final_selection/{}".format(scale)] = final_selection.float()
 
-#---------------------
+
+            #---------------------
+
 
 
             loss += to_optimise.mean()
@@ -545,1355 +572,7 @@ class Trainer:
         total_loss /= self.num_scales
         losses["loss"] = total_loss
         return losses
-    def compute_losses_1(self, inputs, outputs):
-        """
-        softmin and hardmin, first works better!
-        L_p*MS_p
-        """
-        losses = {}
-        total_loss = 0
 
-        for scale in self.opt.scales:
-            loss_g=0
-            loss_p=0
-
-            reprojection_losses = []
-            geometry_losses = []
-
-            source_scale = 0
-
-            disp = outputs[("disp", 0,scale)]
-            color = inputs[("color", 0, scale)]#??
-            target = inputs[("color", 0, source_scale)]
-            pred_depth = outputs[("depth", 0, scale)]
-
-            for frame_id in self.opt.frame_ids[1:]:#前一帧,后一帧,两次计算
-                pred = outputs[("color", frame_id, scale)]
-                reprojection_losses.append(self.compute_reprojection_loss(pred, target))
-            reprojection_losses = torch.cat(reprojection_losses, 1)# list b,1,h,w  to b2hw
-
-
-
-
-
-
-            #auto masking Enable/Disable
-            identity_reprojection_losses = []
-            for frame_id in self.opt.frame_ids[1:]:
-                pred = inputs[("color", frame_id, source_scale)]
-                identity_reprojection_losses.append(self.compute_reprojection_loss(pred, target))# total [b,2,h,w], 2 means pred frame and post frame
-                #直接用相邻帧做损失, loss很小的地方说明后三种静止
-            identity_reprojection_losses = torch.cat(identity_reprojection_losses, 1)#list2batch
-
-
-            identity_reprojection_loss = identity_reprojection_losses
-            #avg reprojection loss Enable/Disable
-            reprojection_loss = reprojection_losses
-
-
-            # add random numbers to break ties
-            identity_reprojection_loss += torch.randn(identity_reprojection_loss.shape).cuda() * 0.00001
-            combined = torch.cat((identity_reprojection_loss, reprojection_loss), dim=1)
-
-            #
-            soft_mask_p = 1.-torch.softmax(combined,dim=1)#softmin, 越小权值越大
-            to_optimise = combined*soft_mask_p
-
-            idxs = torch.argmax(soft_mask_p,dim=1)#mask大的说明重点优化
-
-            outputs["identity_selection/{}".format(scale)] = idxs.float()  # 只读
-
-
-
-
-
-
-            #idxs standsfor which layer of 4 is minimum of tensor in dimension 1
-
-            # 将合成图像,loss更小的位置,置一, 这些地方属于前三种匹配;
-            # 如果实值图像连续帧匹配loss更小, 说明后三种静止, 这些像素不处理, 置零
-            # (关于为啥静止的不要， 主要是如果在一个地方估计出两次（静止）一样的错误， 会由于损失过小而判断这次估计非常精准)
-            # 只是输出， 该地址的数据并不参与计算
-            # 只记录来自2,3 即reprojection loss的地方,这写地方为min 且被选中意味着前3种匹配(不包括out of view与occluded pixels),此作为identity_mask
-            # 0,1部分代表identity_reprojection loss, 通过两张相邻帧算出,如果min来自这里意味着后三种静止
-
-
-
-            # \hat{I}_{t-1}, I_t, \hat{I}_{t+1} --> reprojection_loss
-            # I_{t-1}, I_t, I_{t+1} --> identity_reprojection_loss
-
-
-            # 0,1,2,3; 0,1是实值图像, 2,3是合成图像的索引
-            #bhw
-
-
-            mean_disp = disp.mean(2, True).mean(3, True)
-            norm_disp = disp / (mean_disp + 1e-7)
-
-            # geometry loss add
-            loss_p+= to_optimise.mean()
-            losses["loss_p/{}".format(scale)] =  loss_p
-
-
-
-
-            if self.opt.disparity_smoothness !=0:
-                smooth_loss = get_smooth_loss(norm_disp, color)#b1hw,b3hw
-                loss_s = self.opt.disparity_smoothness * smooth_loss / (2 ** scale)
-                losses["loss_s/{}".format(scale)] = loss_s
-            else:
-                loss_s=0
-
-
-            total_loss += loss_p+loss_s
-
-        total_loss /= self.num_scales
-        losses["loss"] = total_loss#mean of 4 scales
-        return losses
-
-    def compute_losses_2(self, inputs, outputs):
-        """using geometry computed mask
-        Lp * Mhg = -
-        """
-        losses = {}
-        total_loss = 0
-
-        for scale in self.opt.scales:
-            loss_g = 0
-            loss_p = 0
-
-            reprojection_losses = []
-            geometry_losses = []
-
-            source_scale = 0
-
-            disp = outputs[("disp", 0, scale)]
-            color = inputs[("color", 0, scale)]  # ??
-            target = inputs[("color", 0, source_scale)]
-            pred_depth = outputs[("depth", 0, scale)]
-
-            for frame_id in self.opt.frame_ids[1:]:  # 前一帧,后一帧,两次计算
-                pred = outputs[("color", frame_id, scale)]
-                reprojection_losses.append(self.compute_reprojection_loss(pred, target))
-            reprojection_losses = torch.cat(reprojection_losses, 1)  # list b,1,h,w  to b2hw
-
-            # nips 2019
-            if self.opt.geometry_loss_weights != 0:
-                for frame_id in self.opt.frame_ids[1:]:
-                    depth_warp = outputs[("depth_warp", frame_id, scale)]
-                    geometry_losses.append(self.compute_geometry_loss(depth_warp, pred_depth))
-                geometry_losses = torch.cat(geometry_losses, 1)
-
-            # auto masking Enable/Disable
-            identity_reprojection_losses = []
-            for frame_id in self.opt.frame_ids[1:]:
-                pred = inputs[("color", frame_id, source_scale)]
-                identity_reprojection_losses.append(
-                    self.compute_reprojection_loss(pred, target))  # total [b,2,h,w], 2 means pred frame and post frame
-                # 直接用相邻帧做损失, loss很小的地方说明后三种静止
-            identity_reprojection_losses = torch.cat(identity_reprojection_losses, 1)  # list2batch
-
-            identity_reprojection_loss = identity_reprojection_losses
-            # avg reprojection loss Enable/Disable
-            reprojection_loss = reprojection_losses
-
-            # add random numbers to break ties
-            identity_reprojection_loss += torch.randn(identity_reprojection_loss.shape).cuda() * 0.00001
-            combined = torch.cat((identity_reprojection_loss, reprojection_loss), dim=1)
-
-
-
-            # idxs standsfor which layer of 4 is minimum of tensor in dimension 1
-
-            # 将合成图像,loss更小的位置,置一, 这些地方属于前三种匹配;
-            # 如果实值图像连续帧匹配loss更小, 说明后三种静止, 这些像素不处理, 置零
-            # (关于为啥静止的不要， 主要是如果在一个地方估计出两次（静止）一样的错误， 会由于损失过小而判断这次估计非常精准)
-            # 只是输出， 该地址的数据并不参与计算
-            # 只记录来自2,3 即reprojection loss的地方,这写地方为min 且被选中意味着前3种匹配(不包括out of view与occluded pixels),此作为identity_mask
-            # 0,1部分代表identity_reprojection loss, 通过两张相邻帧算出,如果min来自这里意味着后三种静止
-
-            # \hat{I}_{t-1}, I_t, \hat{I}_{t+1} --> reprojection_loss
-            # I_{t-1}, I_t, I_{t+1} --> identity_reprojection_loss
-
-            if self.opt.geometry_loss_weights != 0:
-                combined_g = torch.cat((identity_reprojection_loss, geometry_losses), dim=1)
-                idxs = torch.argmin(combined_g, dim=1)  # idxs_g应该和
-            else:
-                idxs = torch.argmin(combined,dim=1)
-            outputs["identity_selection/{}".format(scale)] = (idxs > 1).float()  # 只读
-
-            to_optimise = torch.gather(combined,index=idxs[:, None, ...],dim=1)
-            # 0,1,2,3; 0,1是实值图像, 2,3是合成图像的索引
-            # bhw
-
-            mean_disp = disp.mean(2, True).mean(3, True)
-            norm_disp = disp / (mean_disp + 1e-7)
-
-            # geometry loss add
-            loss_p += to_optimise.mean()
-            losses["loss_p/{}".format(scale)] = loss_p
-
-
-
-            if self.opt.disparity_smoothness != 0:
-                smooth_loss = get_smooth_loss(norm_disp, color)  # b1hw,b3hw
-                loss_s = self.opt.disparity_smoothness * smooth_loss / (2 ** scale)
-                losses["loss_s/{}".format(scale)] = loss_s
-            else:
-                loss_s = 0
-
-            if self.opt.histc_weights != 0:
-                histc_loss = get_hitc_loss(self.histc_loss[scale], norm_disp)
-                loss_h = self.opt.histc_weights * histc_loss / (2 ** scale)
-                losses["loss_h/{}".format(scale)] = loss_h
-            else:
-                loss_h = 0
-
-            total_loss += loss_p + loss_s + loss_h + loss_g
-
-        total_loss /= self.num_scales
-        losses["loss"] = total_loss  # mean of 4 scales
-        return losses
-    def compute_losses_3(self, inputs, outputs):
-        """
-        L_p*MS_p.mean() + Lg*MS_g.mean()
-        """
-        losses = {}
-        total_loss = 0
-
-        for scale in self.opt.scales:
-            loss_g=0
-            loss_p=0
-
-            reprojection_losses = []
-            geometry_losses = []
-
-            source_scale = 0
-
-            disp = outputs[("disp", 0,scale)]
-            color = inputs[("color", 0, scale)]#??
-            target = inputs[("color", 0, source_scale)]
-            pred_depth = outputs[("depth", 0, scale)]
-
-            for frame_id in self.opt.frame_ids[1:]:#前一帧,后一帧,两次计算
-                pred = outputs[("color", frame_id, scale)]
-                reprojection_losses.append(self.compute_reprojection_loss(pred, target))
-            reprojection_losses = torch.cat(reprojection_losses, 1)# list b,1,h,w  to b2hw
-
-
-            #nips 2019
-            if self.opt.geometry_loss_weights!=0:
-                for frame_id in self.opt.frame_ids[1:]:
-                    depth_warp = outputs[("depth_warp", frame_id, scale)]
-                    geometry_losses.append(self.compute_geometry_loss(depth_warp,pred_depth))
-                geometry_losses = torch.cat(geometry_losses, 1)
-
-
-
-            #auto masking Enable/Disable
-            identity_reprojection_losses = []
-            for frame_id in self.opt.frame_ids[1:]:
-                pred = inputs[("color", frame_id, source_scale)]
-                identity_reprojection_losses.append(self.compute_reprojection_loss(pred, target))# total [b,2,h,w], 2 means pred frame and post frame
-                #直接用相邻帧做损失, loss很小的地方说明后三种静止
-            identity_reprojection_losses = torch.cat(identity_reprojection_losses, 1)#list2batch
-
-
-            identity_reprojection_loss = identity_reprojection_losses
-            #avg reprojection loss Enable/Disable
-            reprojection_loss = reprojection_losses
-
-
-            # add random numbers to break ties
-            identity_reprojection_loss += torch.randn(identity_reprojection_loss.shape).cuda() * 0.00001
-            combined = torch.cat((identity_reprojection_loss, reprojection_loss), dim=1)
-
-
-            if self.opt.geometry_loss_weights!=0:
-                combined_g = torch.cat((identity_reprojection_loss, geometry_losses), dim=1)
-                to_optimise_g, idxs_g = torch.min(combined_g,dim=1)#idxs_g应该和
-
-
-            soft_idxs = 1.-torch.softmax(combined,dim=1)#softmin
-            to_optimise = combined*soft_idxs
-
-            idxs = torch.argmax(soft_idxs,dim=1)
-
-
-            soft_idxs_g = 1.-torch.softmax(combined_g,dim=1)
-            to_optimise_g = combined_g *soft_idxs_g
-            idxs_g = torch.argmax(soft_idxs_g,dim=1)
-
-            outputs["identity_selection/{}".format(scale)] = idxs.float()  # 只读
-            outputs["identity_selection_g/{}".format(scale)] = idxs_g.float()  # 只读
-
-
-
-
-
-            mean_disp = disp.mean(2, True).mean(3, True)
-            norm_disp = disp / (mean_disp + 1e-7)
-
-            # geometry loss add
-            loss_p+= to_optimise.mean()
-            losses["loss_p/{}".format(scale)] =  loss_p
-
-            loss_g += to_optimise_g.mean()
-            losses["loss_g/{}".format(scale)] = loss_g
-
-
-
-            if self.opt.disparity_smoothness !=0 and scale==0:
-                smooth_loss = get_smooth_loss(norm_disp, color)#b1hw,b3hw
-                loss_s = self.opt.disparity_smoothness * smooth_loss / (2 ** scale)
-                losses["loss_s/{}".format(scale)] = loss_s
-            else:
-                loss_s=0
-
-
-
-            total_loss += loss_p+loss_s+loss_g
-
-        total_loss /= self.num_scales
-        losses["loss"] = total_loss#mean of 4 scales
-        return losses
-    def compute_losses_4(self, inputs, outputs):
-        """
-        （L_p*Lg）（MS_p × MS_g）
-        """
-        losses = {}
-        total_loss = 0
-
-        for scale in self.opt.scales:
-            loss_pg=0
-
-            reprojection_losses = []
-            geometry_losses = []
-
-            source_scale = 0
-
-            disp = outputs[("disp", 0,scale)]
-            color = inputs[("color", 0, scale)]#??
-            target = inputs[("color", 0, source_scale)]
-            pred_depth = outputs[("depth", 0, scale)]
-
-            for frame_id in self.opt.frame_ids[1:]:#前一帧,后一帧,两次计算
-                pred = outputs[("color", frame_id, scale)]
-                reprojection_losses.append(self.compute_reprojection_loss(pred, target))
-            reprojection_losses = torch.cat(reprojection_losses, 1)# list b,1,h,w  to b2hw
-
-
-            #nips 2019
-            if self.opt.geometry_loss_weights!=0:
-                for frame_id in self.opt.frame_ids[1:]:
-                    depth_warp = outputs[("depth_warp", frame_id, scale)]
-                    geometry_losses.append(self.compute_geometry_loss(depth_warp,pred_depth))
-                geometry_losses = torch.cat(geometry_losses, 1)
-
-
-
-            #auto masking Enable/Disable
-            identity_reprojection_losses = []
-            for frame_id in self.opt.frame_ids[1:]:
-                pred = inputs[("color", frame_id, source_scale)]
-                identity_reprojection_losses.append(self.compute_reprojection_loss(pred, target))# total [b,2,h,w], 2 means pred frame and post frame
-                #直接用相邻帧做损失, loss很小的地方说明后三种静止
-            identity_reprojection_losses = torch.cat(identity_reprojection_losses, 1)#list2batch
-
-
-            identity_reprojection_loss = identity_reprojection_losses
-            #avg reprojection loss Enable/Disable
-            reprojection_loss = reprojection_losses
-
-
-
-            # add random numbers to break ties
-            identity_reprojection_loss += torch.randn(identity_reprojection_loss.shape).cuda() * 0.00001
-            combined = torch.cat((identity_reprojection_loss, reprojection_loss), dim=1)
-
-
-            combined_g = torch.cat((identity_reprojection_loss, geometry_losses), dim=1)
-            #to_optimise_g, idxs_g = torch.min(combined_g,dim=1)#idxs_g应该和
-
-            combined_pg = combined*combined_g
-
-            #if self.opt.softmin:
-            soft_idxs_pg = 1.-torch.softmax(combined_pg,dim=1)#softmin
-            to_optimise_pg = combined_pg*soft_idxs_pg#
-
-            idxs_pg = torch.argmin(soft_idxs_pg,dim=1)
-
-
-
-            outputs["identity_selection/{}".format(scale)] = idxs_pg.float()  # 只读
-
-
-
-
-
-
-
-            mean_disp = disp.mean(2, True).mean(3, True)
-            norm_disp = disp / (mean_disp + 1e-7)
-
-            # geometry loss add
-            loss_pg+= to_optimise_pg.mean()
-            losses["loss_pg/{}".format(scale)] =  loss_pg
-
-
-
-
-            if self.opt.disparity_smoothness !=0 and scale==0:#smooth就只放一个scale 0 的就行了
-                smooth_loss = get_smooth_loss(norm_disp, color)#b1hw,b3hw
-                loss_s = self.opt.disparity_smoothness * smooth_loss / (2 ** scale)
-                losses["loss_s/{}".format(scale)] = loss_s
-            else:
-                loss_s=0
-
-
-
-            total_loss += loss_pg+loss_s
-
-        total_loss /= self.num_scales
-        losses["loss"] = total_loss#mean of 4 scales
-        return losses
-
-    def compute_losses_5(self, inputs, outputs):
-        """
-        (Lp MSpMsg +Lp MSpMsg).mean()
-
-        """
-        losses = {}
-        total_loss = 0
-
-        for scale in self.opt.scales:
-            loss_pg=0
-            reprojection_losses = []
-            geometry_losses = []
-
-            source_scale = 0
-
-            disp = outputs[("disp", 0,scale)]
-            color = inputs[("color", 0, scale)]#??
-            target = inputs[("color", 0, source_scale)]
-            pred_depth = outputs[("depth", 0, scale)]
-
-            for frame_id in self.opt.frame_ids[1:]:#前一帧,后一帧,两次计算
-                pred = outputs[("color", frame_id, scale)]
-                reprojection_losses.append(self.compute_reprojection_loss(pred, target))
-            reprojection_losses = torch.cat(reprojection_losses, 1)# list b,1,h,w  to b2hw
-
-
-            #nips 2019
-            if self.opt.geometry_loss_weights!=0:
-                for frame_id in self.opt.frame_ids[1:]:
-                    depth_warp = outputs[("depth_warp", frame_id, scale)]
-                    geometry_losses.append(self.compute_geometry_loss(depth_warp,pred_depth))
-                geometry_losses = torch.cat(geometry_losses, 1)
-
-
-
-            #auto masking Enable/Disable
-            identity_reprojection_losses = []
-            for frame_id in self.opt.frame_ids[1:]:
-                pred = inputs[("color", frame_id, source_scale)]
-                identity_reprojection_losses.append(self.compute_reprojection_loss(pred, target))# total [b,2,h,w], 2 means pred frame and post frame
-                #直接用相邻帧做损失, loss很小的地方说明后三种静止
-            identity_reprojection_losses = torch.cat(identity_reprojection_losses, 1)#list2batch
-
-
-            identity_reprojection_loss = identity_reprojection_losses
-            #avg reprojection loss Enable/Disable
-            reprojection_loss = reprojection_losses
-
-
-
-            # add random numbers to break ties
-            identity_reprojection_loss += torch.randn(identity_reprojection_loss.shape).cuda() * 0.00001
-            combined_p = torch.cat((identity_reprojection_loss, reprojection_loss), dim=1)
-
-
-            combined_g = torch.cat((identity_reprojection_loss, geometry_losses), dim=1)
-            #to_optimise_g, idxs_g = torch.min(combined_g,dim=1)#idxs_g应该和
-
-            #combined_pg = combined*combined_g
-
-            #if self.opt.softmin:
-            soft_idxs_p = 1.-torch.softmax(combined_p,dim=1)#softmin
-            #to_optimise_p = combined_p*soft_idxs_p#
-            #idxs_p = torch.argmax(soft_idxs_p,dim=1)
-
-
-            soft_idxs_g = 1. - torch.softmax(combined_p, dim=1)  # softmin
-            #to_optimise_g = combined_g * soft_idxs_g  #
-            #idxs_g = torch.argmax(soft_idxs_g,dim=1)
-
-            mask = soft_idxs_p*soft_idxs_g
-            to_optimise_pg = combined_p*mask + combined_g * mask
-
-            idxs = torch.argmax(mask,dim=1)
-            outputs["identity_selection/{}".format(scale)] = idxs.float()  # 只读
-            #outputs["identity_selection_g/{}".format(scale)] = idxs_g.float()  # 只读
-
-
-
-
-
-
-
-
-            mean_disp = disp.mean(2, True).mean(3, True)
-            norm_disp = disp / (mean_disp + 1e-7)
-
-            # geometry loss add
-            loss_pg+= to_optimise_pg.mean()
-
-            losses["loss_pg/{}".format(scale)] =  loss_pg
-
-
-
-
-
-            if self.opt.disparity_smoothness !=0 and scale==0:#smooth就只放一个scale 0 的就行了
-                smooth_loss = get_smooth_loss(norm_disp, color)#b1hw,b3hw
-                loss_s = self.opt.disparity_smoothness * smooth_loss / (2 ** scale)
-                losses["loss_s/{}".format(scale)] = loss_s
-            else:
-                loss_s=0
-
-
-
-            total_loss += loss_pg+loss_s
-
-        total_loss /= self.num_scales
-        losses["loss"] = total_loss#mean of 4 scales
-        return losses
-    #6.
-    def compute_losses_6(self, inputs, outputs):
-        """
-        (LpMSg +LgMSg).mean()
-        """
-        losses = {}
-        total_loss = 0
-
-        for scale in self.opt.scales:
-            loss_pg=0
-            reprojection_losses = []
-            geometry_losses = []
-
-            source_scale = 0
-
-            disp = outputs[("disp", 0,scale)]
-            color = inputs[("color", 0, scale)]#??
-            target = inputs[("color", 0, source_scale)]
-            pred_depth = outputs[("depth", 0, scale)]
-
-            for frame_id in self.opt.frame_ids[1:]:#前一帧,后一帧,两次计算
-                pred = outputs[("color", frame_id, scale)]
-                reprojection_losses.append(self.compute_reprojection_loss(pred, target))
-            reprojection_losses = torch.cat(reprojection_losses, 1)# list b,1,h,w  to b2hw
-
-
-            #nips 2019
-            if self.opt.geometry_loss_weights!=0:
-                for frame_id in self.opt.frame_ids[1:]:
-                    depth_warp = outputs[("depth_warp", frame_id, scale)]
-                    geometry_losses.append(self.compute_geometry_loss(depth_warp,pred_depth))
-                geometry_losses = torch.cat(geometry_losses, 1)
-
-
-
-            #auto masking Enable/Disable
-            identity_reprojection_losses = []
-            for frame_id in self.opt.frame_ids[1:]:
-                pred = inputs[("color", frame_id, source_scale)]
-                identity_reprojection_losses.append(self.compute_reprojection_loss(pred, target))# total [b,2,h,w], 2 means pred frame and post frame
-                #直接用相邻帧做损失, loss很小的地方说明后三种静止
-            identity_reprojection_losses = torch.cat(identity_reprojection_losses, 1)#list2batch
-
-
-            identity_reprojection_loss = identity_reprojection_losses
-            #avg reprojection loss Enable/Disable
-            reprojection_loss = reprojection_losses
-
-
-
-            # add random numbers to break ties
-            identity_reprojection_loss += torch.randn(identity_reprojection_loss.shape).cuda() * 0.00001
-            combined_p = torch.cat((identity_reprojection_loss, reprojection_loss), dim=1)
-            combined_g = torch.cat((identity_reprojection_loss, geometry_losses), dim=1)
-
-
-            #to_optimise_g, idxs_g = torch.min(combined_g,dim=1)#idxs_g应该和
-
-            #combined_pg = combined*combined_g
-
-            #if self.opt.softmin:
-            mask_p = 1.-torch.softmax(combined_p,dim=1)#softmin
-            mask_g = 1.-torch.softmax(combined_g,dim=1)#softmin
-
-
-
-            to_optimise_pg = combined_p*mask_p + combined_g * mask_g
-
-            idxs_p = torch.argmax(mask_p,dim=1)
-            idxs_g = torch.argmax(mask_g,dim=1)
-
-            outputs["identity_selection/{}".format(scale)] = idxs_p.float()  # 只读
-            outputs["identity_selection_g/{}".format(scale)] = idxs_g.float()  # 只读
-
-
-
-
-
-
-
-
-            mean_disp = disp.mean(2, True).mean(3, True)
-            norm_disp = disp / (mean_disp + 1e-7)
-
-            # geometry loss add
-            loss_pg+= to_optimise_pg.mean()
-
-            losses["loss_pg/{}".format(scale)] =  loss_pg
-
-
-
-
-
-            if self.opt.disparity_smoothness !=0 and scale==0:#smooth就只放一个scale 0 的就行了
-                smooth_loss = get_smooth_loss(norm_disp, color)#b1hw,b3hw
-                loss_s = self.opt.disparity_smoothness * smooth_loss / (2 ** scale)
-                losses["loss_s/{}".format(scale)] = loss_s
-            else:
-                loss_s=0
-
-
-
-            total_loss += loss_pg+loss_s
-
-        total_loss /= self.num_scales
-        losses["loss"] = total_loss#mean of 4 scales
-        return losses
-
-    def compute_losses_7(self, inputs, outputs):
-        """
-            LpMSpg + LgMSpg
-        """
-        losses = {}
-        total_loss = 0
-
-        for scale in self.opt.scales:
-            loss_pg = 0
-            reprojection_losses = []
-            geometry_losses = []
-
-            source_scale = 0
-
-            disp = outputs[("disp", 0, scale)]
-            color = inputs[("color", 0, scale)]  # ??
-            target = inputs[("color", 0, source_scale)]
-            pred_depth = outputs[("depth", 0, scale)]
-
-            for frame_id in self.opt.frame_ids[1:]:  # 前一帧,后一帧,两次计算
-                pred = outputs[("color", frame_id, scale)]
-                reprojection_losses.append(self.compute_reprojection_loss(pred, target))
-            reprojection_losses = torch.cat(reprojection_losses, 1)  # list b,1,h,w  to b2hw
-
-            # nips 2019
-            if self.opt.geometry_loss_weights != 0:
-                for frame_id in self.opt.frame_ids[1:]:
-                    depth_warp = outputs[("depth_warp", frame_id, scale)]
-                    geometry_losses.append(self.compute_geometry_loss(depth_warp, pred_depth))
-                geometry_losses = torch.cat(geometry_losses, 1)
-
-            # auto masking Enable/Disable
-            identity_reprojection_losses = []
-            for frame_id in self.opt.frame_ids[1:]:
-                pred = inputs[("color", frame_id, source_scale)]
-                identity_reprojection_losses.append(
-                    self.compute_reprojection_loss(pred, target))  # total [b,2,h,w], 2 means pred frame and post frame
-                # 直接用相邻帧做损失, loss很小的地方说明后三种静止
-            identity_reprojection_losses = torch.cat(identity_reprojection_losses, 1)  # list2batch
-
-            identity_reprojection_loss = identity_reprojection_losses
-            # avg reprojection loss Enable/Disable
-            reprojection_loss = reprojection_losses
-
-            # add random numbers to break ties
-            identity_reprojection_loss += torch.randn(identity_reprojection_loss.shape).cuda() * 0.00001
-            combined_p = torch.cat((identity_reprojection_loss, reprojection_loss), dim=1)
-
-            combined_g = torch.cat((identity_reprojection_loss, geometry_losses), dim=1)
-            # to_optimise_g, idxs_g = torch.min(combined_g,dim=1)#idxs_g应该和
-
-            # combined_pg = combined*combined_g
-
-            # if self.opt.softmin:
-            mask = 1. - torch.softmax(combined_p * combined_g, dim=1)  # softmin
-
-            to_optimise_pg = combined_p * mask + combined_g * mask
-
-            idxs = torch.argmax(mask, dim=1)
-            outputs["identity_selection/{}".format(scale)] = idxs.float()  # 只读
-            # outputs["identity_selection_g/{}".format(scale)] = idxs_g.float()  # 只读
-
-            mean_disp = disp.mean(2, True).mean(3, True)
-            norm_disp = disp / (mean_disp + 1e-7)
-
-            # geometry loss add
-            loss_pg += to_optimise_pg.mean()
-
-            losses["loss_pg/{}".format(scale)] = loss_pg
-
-            if self.opt.disparity_smoothness != 0 and scale == 0:  # smooth就只放一个scale 0 的就行了
-                smooth_loss = get_smooth_loss(norm_disp, color)  # b1hw,b3hw
-                loss_s = self.opt.disparity_smoothness * smooth_loss / (2 ** scale)
-                losses["loss_s/{}".format(scale)] = loss_s
-            else:
-                loss_s = 0
-
-            total_loss += loss_pg + loss_s
-
-        total_loss /= self.num_scales
-        losses["loss"] = total_loss  # mean of 4 scales
-        return losses
-    def compute_losses_8(self, inputs, outputs):
-        """
-        (LpMSg +0.5 LgMSg).mean()
-        """
-        losses = {}
-        total_loss = 0
-
-        for scale in self.opt.scales:
-            loss_pg=0
-            reprojection_losses = []
-            geometry_losses = []
-
-            source_scale = 0
-
-            disp = outputs[("disp", 0,scale)]
-            color = inputs[("color", 0, scale)]#??
-            target = inputs[("color", 0, source_scale)]
-            pred_depth = outputs[("depth", 0, scale)]
-
-            for frame_id in self.opt.frame_ids[1:]:#前一帧,后一帧,两次计算
-                pred = outputs[("color", frame_id, scale)]
-                reprojection_losses.append(self.compute_reprojection_loss(pred, target))
-            reprojection_losses = torch.cat(reprojection_losses, 1)# list b,1,h,w  to b2hw
-
-
-            #nips 2019
-            if self.opt.geometry_loss_weights!=0:
-                for frame_id in self.opt.frame_ids[1:]:
-                    depth_warp = outputs[("depth_warp", frame_id, scale)]
-                    geometry_losses.append(self.compute_geometry_loss(depth_warp,pred_depth))
-                geometry_losses = torch.cat(geometry_losses, 1)
-
-
-
-            #auto masking Enable/Disable
-            identity_reprojection_losses = []
-            for frame_id in self.opt.frame_ids[1:]:
-                pred = inputs[("color", frame_id, source_scale)]
-                identity_reprojection_losses.append(self.compute_reprojection_loss(pred, target))# total [b,2,h,w], 2 means pred frame and post frame
-                #直接用相邻帧做损失, loss很小的地方说明后三种静止
-            identity_reprojection_losses = torch.cat(identity_reprojection_losses, 1)#list2batch
-
-
-            identity_reprojection_loss = identity_reprojection_losses
-            #avg reprojection loss Enable/Disable
-            reprojection_loss = reprojection_losses
-
-
-
-            # add random numbers to break ties
-            identity_reprojection_loss += torch.randn(identity_reprojection_loss.shape).cuda() * 0.00001
-            combined_p = torch.cat((identity_reprojection_loss, reprojection_loss), dim=1)
-            combined_g = torch.cat((identity_reprojection_loss, geometry_losses), dim=1)
-
-
-            #to_optimise_g, idxs_g = torch.min(combined_g,dim=1)#idxs_g应该和
-
-            #combined_pg = combined*combined_g
-
-            #if self.opt.softmin:
-            mask_p = 1.-torch.softmax(combined_p,dim=1)#softmin
-            mask_g = 1.-torch.softmax(combined_g,dim=1)#softmin
-
-
-
-            to_optimise_pg = combined_p*mask_p + 0.5*combined_g * mask_g
-
-            idxs_p = torch.argmax(mask_p,dim=1)
-            idxs_g = torch.argmax(mask_g,dim=1)
-
-            outputs["identity_selection/{}".format(scale)] = idxs_p.float()  # 只读
-            outputs["identity_selection_g/{}".format(scale)] = idxs_g.float()  # 只读
-
-
-
-
-
-
-
-
-            mean_disp = disp.mean(2, True).mean(3, True)
-            norm_disp = disp / (mean_disp + 1e-7)
-
-            # geometry loss add
-            loss_pg+= to_optimise_pg.mean()
-
-            losses["loss_pg/{}".format(scale)] =  loss_pg
-
-
-
-
-
-            if self.opt.disparity_smoothness !=0 and scale==0:#smooth就只放一个scale 0 的就行了
-                smooth_loss = get_smooth_loss(norm_disp, color)#b1hw,b3hw
-                loss_s = self.opt.disparity_smoothness * smooth_loss / (2 ** scale)
-                losses["loss_s/{}".format(scale)] = loss_s
-            else:
-                loss_s=0
-
-
-
-            total_loss += loss_pg+loss_s
-
-        total_loss /= self.num_scales
-        losses["loss"] = total_loss#mean of 4 scales
-        return losses
-
-    def compute_losses_9(self, inputs, outputs):
-        """
-        (LpMSg +0.5 LgMSg).mean()
-        lg更改为与 实值图像序列无关
-        """
-        losses = {}
-        total_loss = 0
-
-        for scale in self.opt.scales:
-            loss_pg=0
-            reprojection_losses = []
-            geometry_losses = []
-
-            source_scale = 0
-
-            disp = outputs[("disp", 0,scale)]
-            color = inputs[("color", 0, scale)]#??
-            target = inputs[("color", 0, source_scale)]
-            pred_depth = outputs[("depth", 0, scale)]
-
-            for frame_id in self.opt.frame_ids[1:]:#前一帧,后一帧,两次计算
-                pred = outputs[("color", frame_id, scale)]
-                reprojection_losses.append(self.compute_reprojection_loss(pred, target))
-            reprojection_losses = torch.cat(reprojection_losses, 1)# list b,1,h,w  to b2hw
-
-
-            #nips 2019
-            if self.opt.geometry_loss_weights!=0:
-                for frame_id in self.opt.frame_ids[1:]:
-                    depth_warp = outputs[("depth_warp", frame_id, scale)]
-                    geometry_losses.append(self.compute_geometry_loss(depth_warp,pred_depth))
-                geometry_losses = torch.cat(geometry_losses, 1)
-
-
-
-            #auto masking Enable/Disable
-            identity_reprojection_losses = []
-            for frame_id in self.opt.frame_ids[1:]:
-                pred = inputs[("color", frame_id, source_scale)]
-                identity_reprojection_losses.append(self.compute_reprojection_loss(pred, target))# total [b,2,h,w], 2 means pred frame and post frame
-                #直接用相邻帧做损失, loss很小的地方说明后三种静止
-            identity_reprojection_losses = torch.cat(identity_reprojection_losses, 1)#list2batch
-
-
-            identity_reprojection_loss = identity_reprojection_losses
-            #avg reprojection loss Enable/Disable
-            reprojection_loss = reprojection_losses
-
-
-
-            # add random numbers to break ties
-            identity_reprojection_loss += torch.randn(identity_reprojection_loss.shape).cuda() * 0.00001
-            combined_p = torch.cat((identity_reprojection_loss, reprojection_loss), dim=1)#b4hw
-            combined_g = geometry_losses #b2hw
-
-
-            #to_optimise_g, idxs_g = torch.min(combined_g,dim=1)#idxs_g应该和
-
-            #combined_pg = combined*combined_g
-
-            #if self.opt.softmin:
-            mask_p = 1.-torch.softmax(combined_p,dim=1)##b4hw
-            mask_g = 1.-torch.softmax(combined_g,dim=1)#softmin
-
-
-
-            to_optimise_pg = (combined_p*mask_p).mean(dim=1) + (0.5*combined_g * mask_g).mean(dim=1)
-
-            idxs_p = torch.argmax(mask_p,dim=1)
-            idxs_g = torch.argmax(mask_g,dim=1)
-
-            outputs["identity_selection/{}".format(scale)] = idxs_p.float()  # 只读
-            outputs["identity_selection_g/{}".format(scale)] = idxs_g.float()  # 只读
-
-
-
-
-
-
-
-
-            mean_disp = disp.mean(2, True).mean(3, True)
-            norm_disp = disp / (mean_disp + 1e-7)
-
-            # geometry loss add
-            loss_pg+= to_optimise_pg.mean()
-
-            losses["loss_pg/{}".format(scale)] =  loss_pg
-
-
-
-
-
-            if self.opt.disparity_smoothness !=0 and scale==0:#smooth就只放一个scale 0 的就行了
-                smooth_loss = get_smooth_loss(norm_disp, color)#b1hw,b3hw
-                loss_s = self.opt.disparity_smoothness * smooth_loss / (2 ** scale)
-                losses["loss_s/{}".format(scale)] = loss_s
-            else:
-                loss_s=0
-
-
-
-            total_loss += loss_pg+loss_s
-
-        total_loss /= self.num_scales
-        losses["loss"] = total_loss#mean of 4 scales
-        return losses
-
-    def compute_losses_10(self, inputs, outputs):
-        """
-        (LpMSg +0.5 Lg*MSg).mean()
-        lg更改为与 实值图像序列无关
-        """
-        losses = {}
-        total_loss = 0
-
-        for scale in self.opt.scales:
-            loss_pg=0
-            reprojection_losses = []
-            geometry_losses = []
-
-            source_scale = 0
-
-            disp = outputs[("disp", 0,scale)]
-            color = inputs[("color", 0, scale)]#??
-            target = inputs[("color", 0, source_scale)]
-            pred_depth = outputs[("depth", 0, scale)]
-
-            for frame_id in self.opt.frame_ids[1:]:#前一帧,后一帧,两次计算
-                pred = outputs[("color", frame_id, scale)]
-                reprojection_losses.append(self.compute_reprojection_loss(pred, target))
-            reprojection_losses = torch.cat(reprojection_losses, 1)# list b,1,h,w  to b2hw
-
-
-            #nips 2019
-            if self.opt.geometry_loss_weights!=0:
-                for frame_id in self.opt.frame_ids[1:]:
-                    depth_warp = outputs[("depth_warp", frame_id, scale)]
-                    geometry_losses.append(self.compute_geometry_loss(depth_warp,pred_depth))
-                geometry_losses = torch.cat(geometry_losses, 1)
-
-
-
-            #auto masking Enable/Disable
-            identity_reprojection_losses = []
-            for frame_id in self.opt.frame_ids[1:]:
-                pred = inputs[("color", frame_id, source_scale)]
-                identity_reprojection_losses.append(self.compute_reprojection_loss(pred, target))# total [b,2,h,w], 2 means pred frame and post frame
-                #直接用相邻帧做损失, loss很小的地方说明后三种静止
-            identity_reprojection_losses = torch.cat(identity_reprojection_losses, 1)#list2batch
-
-
-            identity_reprojection_loss = identity_reprojection_losses
-            #avg reprojection loss Enable/Disable
-            reprojection_loss = reprojection_losses
-
-
-
-            # add random numbers to break ties
-            identity_reprojection_loss += torch.randn(identity_reprojection_loss.shape).cuda() * 0.00001
-            combined_p = torch.cat((identity_reprojection_loss, reprojection_loss), dim=1)#b4hw
-            combined_g = geometry_losses #b2hw
-
-
-            #to_optimise_g, idxs_g = torch.min(combined_g,dim=1)#idxs_g应该和
-
-            #combined_pg = combined*combined_g
-
-            #if self.opt.softmin:
-            mask_p = 1.-torch.softmax(combined_p,dim=1)##b4hw
-            mask_g = 1.-torch.softmax(combined_g,dim=1)#softmin
-
-
-
-            to_optimise_pg = (combined_p*mask_p).mean(dim=1) + (0.2*combined_g * mask_g).mean(dim=1)
-
-            idxs_p = torch.argmax(mask_p,dim=1)
-            idxs_g = torch.argmax(mask_g,dim=1)
-
-            outputs["identity_selection/{}".format(scale)] = idxs_p.float()  # 只读
-            outputs["identity_selection_g/{}".format(scale)] = idxs_g.float()  # 只读
-
-
-
-
-
-
-
-
-            mean_disp = disp.mean(2, True).mean(3, True)
-            norm_disp = disp / (mean_disp + 1e-7)
-
-            # geometry loss add
-            loss_pg+= to_optimise_pg.mean()
-
-            losses["loss_pg/{}".format(scale)] =  loss_pg
-
-
-
-
-
-            if self.opt.disparity_smoothness !=0 and scale==0:#smooth就只放一个scale 0 的就行了
-                smooth_loss = get_smooth_loss(norm_disp, color)#b1hw,b3hw
-                loss_s = self.opt.disparity_smoothness * smooth_loss / (2 ** scale)
-                losses["loss_s/{}".format(scale)] = loss_s
-            else:
-                loss_s=0
-
-
-
-            total_loss += loss_pg+loss_s
-
-        total_loss /= self.num_scales
-        losses["loss"] = total_loss#mean of 4 scales
-        return losses
-
-    def compute_losses_11(self, inputs, outputs):
-        """
-       ((Lp+Lg)MSp).mean
-        """
-        losses = {}
-        total_loss = 0
-
-        for scale in self.opt.scales:
-            loss_pg=0
-            reprojection_losses = []
-            geometry_losses = []
-
-            source_scale = 0
-
-            disp = outputs[("disp", 0,scale)]
-            color = inputs[("color", 0, scale)]#??
-            target = inputs[("color", 0, source_scale)]
-            pred_depth = outputs[("depth", 0, scale)]
-
-            for frame_id in self.opt.frame_ids[1:]:#前一帧,后一帧,两次计算
-                pred = outputs[("color", frame_id, scale)]
-                reprojection_losses.append(self.compute_reprojection_loss(pred, target))
-            reprojection_losses = torch.cat(reprojection_losses, 1)# list b,1,h,w  to b2hw
-
-
-            #nips 2019
-            if self.opt.geometry_loss_weights!=0:
-                for frame_id in self.opt.frame_ids[1:]:
-                    depth_warp = outputs[("depth_warp", frame_id, scale)]
-                    geometry_losses.append(self.compute_geometry_loss(depth_warp,pred_depth))
-                geometry_losses = torch.cat(geometry_losses, 1)
-
-
-
-            #auto masking Enable/Disable
-            identity_reprojection_losses = []
-            for frame_id in self.opt.frame_ids[1:]:
-                pred = inputs[("color", frame_id, source_scale)]
-                identity_reprojection_losses.append(self.compute_reprojection_loss(pred, target))# total [b,2,h,w], 2 means pred frame and post frame
-                #直接用相邻帧做损失, loss很小的地方说明后三种静止
-            identity_reprojection_losses = torch.cat(identity_reprojection_losses, 1)#list2batch
-
-
-            identity_reprojection_loss = identity_reprojection_losses
-            #avg reprojection loss Enable/Disable
-            reprojection_loss = reprojection_losses
-
-
-
-            # add random numbers to break ties
-            identity_reprojection_loss += torch.randn(identity_reprojection_loss.shape).cuda() * 0.00001
-            combined_p = torch.cat((identity_reprojection_loss, reprojection_loss), dim=1)#b4hw
-            combined_g = torch.cat((identity_reprojection_loss,geometry_losses),dim=1) #b2hw
-
-
-            #to_optimise_g, idxs_g = torch.min(combined_g,dim=1)#idxs_g应该和
-
-            #combined_pg = combined*combined_g
-
-            #if self.opt.softmin:
-            mask_p = 1.-torch.softmax(combined_p,dim=1)##b4hw
-            mask_g = 1.-torch.softmax(combined_g,dim=1)#softmin
-
-
-
-            to_optimise_pg = (combined_p+combined_g)*mask_p
-
-            idxs_p = torch.argmax(mask_p,dim=1)
-            #idxs_g = torch.argmax(mask_g,dim=1)
-
-            outputs["identity_selection/{}".format(scale)] = idxs_p.float()  # 只读
-            #outputs["identity_selection_g/{}".format(scale)] = idxs_g.float()  # 只读
-
-
-
-
-
-
-
-
-            mean_disp = disp.mean(2, True).mean(3, True)
-            norm_disp = disp / (mean_disp + 1e-7)
-
-            # geometry loss add
-            loss_pg+= to_optimise_pg.mean()
-
-            losses["loss_pg/{}".format(scale)] =  loss_pg
-
-
-
-
-
-            if self.opt.disparity_smoothness !=0 and scale==0:#smooth就只放一个scale 0 的就行了
-                smooth_loss = get_smooth_loss(norm_disp, color)#b1hw,b3hw
-                loss_s = self.opt.disparity_smoothness * smooth_loss / (2 ** scale)
-                losses["loss_s/{}".format(scale)] = loss_s
-            else:
-                loss_s=0
-
-
-
-            total_loss += loss_pg+loss_s
-
-        total_loss /= self.num_scales
-        losses["loss"] = total_loss#mean of 4 scales
-        return losses
-
-    def compute_losses_12(self, inputs, outputs):
-        """
-       (LpgMSpg).mean
-        """
-        losses = {}
-        total_loss = 0
-
-        for scale in self.opt.scales:
-            loss_pg = 0
-            reprojection_losses = []
-            geometry_losses = []
-
-            source_scale = 0
-
-            disp = outputs[("disp", 0, scale)]
-            color = inputs[("color", 0, scale)]  # ??
-            target = inputs[("color", 0, source_scale)]
-            pred_depth = outputs[("depth", 0, scale)]
-
-            for frame_id in self.opt.frame_ids[1:]:  # 前一帧,后一帧,两次计算
-                pred = outputs[("color", frame_id, scale)]
-                reprojection_losses.append(self.compute_reprojection_loss(pred, target))
-            reprojection_losses = torch.cat(reprojection_losses, 1)  # list b,1,h,w  to b2hw
-
-            # nips 2019
-            if self.opt.geometry_loss_weights != 0:
-                for frame_id in self.opt.frame_ids[1:]:
-                    depth_warp = outputs[("depth_warp", frame_id, scale)]
-                    geometry_losses.append(self.compute_geometry_loss(depth_warp, pred_depth))
-                geometry_losses = torch.cat(geometry_losses, 1)
-
-            # auto masking Enable/Disable
-            identity_reprojection_losses = []
-            for frame_id in self.opt.frame_ids[1:]:
-                pred = inputs[("color", frame_id, source_scale)]
-                identity_reprojection_losses.append(
-                    self.compute_reprojection_loss(pred, target))  # total [b,2,h,w], 2 means pred frame and post frame
-                # 直接用相邻帧做损失, loss很小的地方说明后三种静止
-            identity_reprojection_losses = torch.cat(identity_reprojection_losses, 1)  # list2batch
-
-            identity_reprojection_loss = identity_reprojection_losses
-            # avg reprojection loss Enable/Disable
-            reprojection_loss = reprojection_losses
-
-            # add random numbers to break ties
-            identity_reprojection_loss += torch.randn(identity_reprojection_loss.shape).cuda() * 0.00001
-            combined_pg = torch.cat((identity_reprojection_loss, reprojection_loss,geometry_losses), dim=1)  # b4hw,可能geometry loss概率更大， 所以更模糊
-
-            # to_optimise_g, idxs_g = torch.min(combined_g,dim=1)#idxs_g应该和
-
-            # combined_pg = combined*combined_g
-
-            # if self.opt.softmin:
-            mask_pg = 1. - torch.softmax(combined_pg, dim=1)  ##b4hw
-
-            to_optimise_pg = combined_pg * mask_pg
-
-            idxs_pg = torch.argmax(mask_pg, dim=1)
-
-            outputs["identity_selection/{}".format(scale)] = idxs_pg.float()  # 只读
-            # outputs["identity_selection_g/{}".format(scale)] = idxs_g.float()  # 只读
-
-            mean_disp = disp.mean(2, True).mean(3, True)
-            norm_disp = disp / (mean_disp + 1e-7)
-
-            # geometry loss add
-            loss_pg += to_optimise_pg.mean()
-
-            losses["loss_pg/{}".format(scale)] = loss_pg
-
-            if self.opt.disparity_smoothness != 0 and scale == 0:  # smooth就只放一个scale 0 的就行了
-                smooth_loss = get_smooth_loss(norm_disp, color)  # b1hw,b3hw
-                loss_s = self.opt.disparity_smoothness * smooth_loss / (2 ** scale)
-                losses["loss_s/{}".format(scale)] = loss_s
-            else:
-                loss_s = 0
-
-            total_loss += loss_pg + loss_s
-
-        total_loss /= self.num_scales
-        losses["loss"] = total_loss  # mean of 4 scales
-        return losses
-
-    def compute_losses_test_bp(self, inputs, outputs):
-        """
-        单独测试identity loss， 其他为0, 确实不可学习， 参数应该是动都没动
-        """
-        losses = {}
-        total_loss = 0
-
-        for scale in self.opt.scales:
-            loss_pg = 0
-            reprojection_losses = []
-            geometry_losses = []
-
-            source_scale = 0
-
-            disp = outputs[("disp", 0, scale)]
-            color = inputs[("color", 0, scale)]  # ??
-            target = inputs[("color", 0, source_scale)]
-            pred_depth = outputs[("depth", 0, scale)]
-
-
-
-            # auto masking Enable/Disable
-            identity_reprojection_losses = []
-            for frame_id in self.opt.frame_ids[1:]:
-                pred = inputs[("color", frame_id, source_scale)]
-                identity_reprojection_losses.append(
-                    self.compute_reprojection_loss(pred, target))  # total [b,2,h,w], 2 means pred frame and post frame
-                # 直接用相邻帧做损失, loss很小的地方说明后三种静止
-            identity_reprojection_losses = torch.cat(identity_reprojection_losses, 1)  # list2batch
-
-            identity_reprojection_loss = identity_reprojection_losses
-
-            # add random numbers to break ties
-            identity_reprojection_loss += torch.randn(identity_reprojection_loss.shape).cuda() * 0.00001
-            combined_p = identity_reprojection_loss
-
-
-            to_optimise_pg,idxs = torch.min(combined_p,dim=1)  ##b4hw, weights, 越大loss越小
-
-
-
-            mean_disp = disp.mean(2, True).mean(3, True)
-            norm_disp = disp / (mean_disp + 1e-7)
-
-            # geometry loss add
-            loss_pg += to_optimise_pg.mean()
-
-            losses["loss_pg/{}".format(scale)] = loss_pg
-
-            if self.opt.disparity_smoothness != 0 and scale == 0:  # smooth就只放一个scale 0 的就行了
-                smooth_loss = get_smooth_loss(norm_disp, color)  # b1hw,b3hw
-                loss_s = self.opt.disparity_smoothness * smooth_loss / (2 ** scale)
-                losses["loss_s/{}".format(scale)] = loss_s
-            else:
-                loss_s = 0
-
-            total_loss += loss_pg + loss_s
-
-        total_loss /= self.num_scales
-        losses["loss"] = total_loss  # mean of 4 scales
-        return losses
-
-    def compute_losses_test_bp2(self, inputs, outputs):
-        """
-        只考虑repro loss， identity loss 置0
-        """
-        losses = {}
-        total_loss = 0
-
-        for scale in self.opt.scales:
-            loss_pg = 0
-            reprojection_losses = []
-            geometry_losses = []
-
-            source_scale = 0
-
-            disp = outputs[("disp", 0, scale)]
-            color = inputs[("color", 0, scale)]  # ??
-            target = inputs[("color", 0, source_scale)]
-            pred_depth = outputs[("depth", 0, scale)]
-
-            for frame_id in self.opt.frame_ids[1:]:  # 前一帧,后一帧,两次计算
-                pred = outputs[("color", frame_id, scale)]
-                reprojection_losses.append(self.compute_reprojection_loss(pred, target))
-            reprojection_losses = torch.cat(reprojection_losses, 1)  # list b,1,h,w  to b2hw
-
-
-
-            # avg reprojection loss Enable/Disable
-            reprojection_loss = reprojection_losses
-
-            # add random numbers to break ties
-            combined_p = reprojection_loss
-
-            # to_optimise_g, idxs_g = torch.min(combined_g,dim=1)#idxs_g应该和
-
-
-            # if self.opt.softmin:
-            to_optimise_pg ,idxs_pg= torch.min(combined_p,dim=1)
-
-
-
-
-            mean_disp = disp.mean(2, True).mean(3, True)
-            norm_disp = disp / (mean_disp + 1e-7)
-
-            # geometry loss add
-            loss_pg += to_optimise_pg.mean()
-
-            losses["loss_pg/{}".format(scale)] = loss_pg
-
-            if self.opt.disparity_smoothness != 0 and scale == 0:  # smooth就只放一个scale 0 的就行了
-                smooth_loss = get_smooth_loss(norm_disp, color)  # b1hw,b3hw
-                loss_s = self.opt.disparity_smoothness * smooth_loss / (2 ** scale)
-                losses["loss_s/{}".format(scale)] = loss_s
-            else:
-                loss_s = 0
-
-            total_loss += loss_pg + loss_s
-
-        total_loss /= self.num_scales
-        losses["loss"] = total_loss  # mean of 4 scales
-        return losses
 
     def compute_depth_metrics(self, inputs, outputs):
         """Compute depth metrics, to allow monitoring during training
@@ -1955,6 +634,10 @@ class Trainer:
         if inputs!=None and outputs!=None:
             for j in range(min(4, self.opt.batch_size)):  # write a maxminmum of four images
                 for s in self.opt.scales:
+                    #multi scale
+                    if s !=0:
+                        continue
+                    #color add
                     for frame_id in self.opt.frame_ids:
                         writer.add_image(
                             "color_{}_{}/{}".format(frame_id, s, j),
@@ -1964,21 +647,25 @@ class Trainer:
                                 "color_pred_{}_{}/{}".format(frame_id, s, j),
                                 outputs[("color", frame_id, s)][j].data, self.step)
 
+                    #disp add
                     writer.add_image(
                         "disp_{}/{}".format(s, j),
                         normalize_image(outputs[("disp", 0,s)][j]), self.step)
+                    #mask add
+                    for mask in self.opt.masks:
+                        if mask+'/{}'.format(s) in outputs.keys():
+                            img = tensor2array(outputs[mask+'/{}'.format(s)][j], colormap='bone')
+                            writer.add_image(
+                                mask+"{}/{}".format(s, j),
+                                img, self.step)  # add 1,h,w
 
+                    '''        
                     if "identity_selection/{}".format(s) in outputs.keys():
                         img = tensor2array(outputs["identity_selection/{}".format(s)][j],colormap='bone')
                         writer.add_image(
                                 "automask_{}/{}".format(s, j),
                                 #outputs["identity_selection/{}".format(s)][j][None, ...], self.step)
                                 img, self.step)#add 1,h,w
-
-                    if "identity_selection_g/{}".format(s) in outputs.keys():
-                        writer.add_image(
-                            "automask_g{}/{}".format(s,j),
-                            outputs["identity_selection_g/{}".format(s)][j][None, ...], self.step)
 
                     if "mo_ob/{}".format(s) in outputs.keys():
                         img = tensor2array(outputs["mo_ob/{}".format(s)][j],colormap='bone')
@@ -1992,7 +679,7 @@ class Trainer:
                                 "final_selection_{}/{}".format(s, j),
                                 #outputs["identity_selection/{}".format(s)][j][None, ...], self.step)
                                 img, self.step)#add 1,h,w
-
+                    '''
 
     def save_opts(self):
         """Save options to disk so we know what we ran this experiment with
@@ -2034,13 +721,13 @@ class Trainer:
         print("loading model from folder {}".format(self.opt.load_weights_folder))
 
         for n in self.opt.models_to_load:
-            print("Loading {} weights...".format(n))
             path = os.path.join(self.opt.load_weights_folder, "{}.pth".format(n))
             model_dict = self.models[n].state_dict()
             pretrained_dict = torch.load(path)
             pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
             model_dict.update(pretrained_dict)
             self.models[n].load_state_dict(model_dict)
+        print("Loading {} weights...".format(self.opt.models_to_load))
 
         # loading adam state
         optimizer_load_path = os.path.join(self.opt.load_weights_folder, "adam.pth")
@@ -2106,7 +793,7 @@ class Trainer:
         self.epoch = 0
         self.step = 0
         self.start_time = time.time()
-        for self.epoch in range(self.opt.num_epochs):
+        for self.epoch in range(self.opt.start_epoch,self.opt.num_epochs):
             epc_st = time.time()
             self.epoch_train()
             duration = time.time() - epc_st

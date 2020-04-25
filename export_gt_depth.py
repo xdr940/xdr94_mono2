@@ -23,7 +23,7 @@ def export_gt_depths_kitti():
     parser.add_argument('--split',
                         type=str,
                         help='which split to export gt from',
-                        default='eigen',
+                        default='eigen_benchmark',
                         choices=["eigen", "eigen_benchmark", "custom"])
 
     parser.add_argument('--data_path',#2012年版本最原始的
@@ -118,5 +118,5 @@ def export_gt_depths_mc():
     np.savez_compressed(output_path, data=np.array(gt_depths))
 
 if __name__ == "__main__":
-    #export_gt_depths_kitti()
-    export_gt_depths_mc()
+    export_gt_depths_kitti()
+    #export_gt_depths_mc()

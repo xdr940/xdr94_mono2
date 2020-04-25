@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 
 from layers import disp_to_depth
 from utils.official import readlines
-from options import MonodepthOptions
+from options import MD_eval_opts
 import datasets
 import networks
 from tqdm import  tqdm
@@ -70,7 +70,7 @@ def evaluate(opt):
     splits_dir = Path(opt.root)/'splits'
 
     #1. load gt
-    print('\n-> load gt\n')
+    print('\n-> load gt:{}\n'.format(opt.eval_split))
     gt_path = Path(splits_dir) / opt.eval_split / "gt_depths.npz"
     gt_depths = np.load(gt_path,allow_pickle=True)
     gt_depths = gt_depths["data"]
@@ -245,5 +245,5 @@ def evaluate(opt):
 
 
 if __name__ == "__main__":
-    options = MonodepthOptions()
+    options = MD_eval_opts()
     evaluate(options.parse())
