@@ -1704,3 +1704,193 @@
 
             #---------------------
 ```
+
+
+```python
+04261212
+#-------------------------
+            map_0, idxs_0 = torch.min(erro_maps, dim=1)  # b,4,h,w-->bhw,bhw
+            rhosvar = erro_maps.var(dim=1,unbiased=False)#bhw4 --> BHW
+            rhosvar_flat = rhosvar.flatten(start_dim=1)#B,H*W
+
+            #rhosvar normalization
+            #max norm
+            #max,_ = rhosvar_flat.max(dim=1)#B
+            #rhosvar_flat = rhosvar_flat/max.unsqueeze(1)#b,hw / b,1 = b,h*w
+
+            #mean norm
+            median,_ = rhosvar_flat.median(dim=1)#b
+            rhosvar_flat /= median.unsqueeze(1)#b,1 / b,1
+
+            delta_var,_ = rhosvar_flat.median(dim=1)#B
+            delta_var = delta_var.unsqueeze(1)
+            delta_var = 0.5
+            var_mask = (rhosvar_flat > delta_var).reshape_as(rhosvar)
+
+            #final_selection =  var_mask.float()#rhosvar.float()
+            #final_selection = rhosvar*(1- var_mask.float()) + var_mask.float()
+            to_optimise = map_0 *var_mask.float()#loss map
+            #to_optimise = map_0 * var_mask.float()#loss map
+            #to_optimise = reprojection_loss.float()#loss map
+            identity_selection = (idxs_0 > identity_reprojection_loss.shape[1] - 1)
+
+
+
+            outputs["to_optimise/{}".format(scale)] = to_optimise.float()
+
+            #outputs["rhosvar/{}".format(scale)] = 1- var_mask.float()
+            outputs["identity_selection/{}".format(scale)] = identity_selection.float()
+
+            outputs["var_mask/{}".format(scale)] = var_mask.float()
+            #outputs["final_selection/{}".format(scale)] = final_selection
+
+
+
+
+            #---------------------
+```
+
+试试identical mask 遮掩， 理论上应该和min完全一样
+```python
+
+ def compute_losses_f(self, inputs, outputs):
+        """通过var 计算移动物体
+        """
+        losses = {}
+        total_loss = 0
+
+        for scale in self.opt.scales:
+            loss = 0
+            reprojection_losses = []
+
+            source_scale = 0
+
+            disp = outputs[("disp", 0, scale)]
+            color = inputs[("color", 0, scale)]
+            target = inputs[("color", 0, source_scale)]
+
+            for frame_id in self.opt.frame_ids[1:]:
+                pred = outputs[("color", frame_id, scale)]
+                reprojection_losses.append(self.compute_reprojection_loss(pred, target))
+
+            reprojection_losses = torch.cat(reprojection_losses, 1)
+
+            identity_reprojection_losses = []
+            for frame_id in self.opt.frame_ids[1:]:
+                pred = inputs[("color", frame_id, source_scale)]
+                identity_reprojection_losses.append(
+                    self.compute_reprojection_loss(pred, target))
+
+            identity_reprojection_losses = torch.cat(identity_reprojection_losses, 1)
+
+            identity_reprojection_loss = identity_reprojection_losses
+
+            reprojection_loss = reprojection_losses
+
+            # add random numbers to break ties# 花书p149 向输入添加方差极小的噪声等价于 对权重施加范数惩罚
+            identity_reprojection_loss += torch.randn(
+                identity_reprojection_loss.shape).cuda() * 0.00001
+
+            erro_maps = torch.cat((identity_reprojection_loss, reprojection_loss), dim=1)#b4hw
+
+            # -------------------------
+            map_0, idxs_0 = torch.min(erro_maps, dim=1)  # b,4,h,w-->bhw,bhw
+
+            rhosvar = erro_maps.var(dim=1, unbiased=False)  # BHW
+            rhosvar_flat = rhosvar.flatten(start_dim=1)  # B,H*W
+            median, _ = rhosvar_flat.median(dim=1)  # b
+            #rhosvar_flat /= median.unsqueeze(1)
+            delta_var = rhosvar_flat.mean(dim=1).unsqueeze(1)  # B
+
+            var_mask = (rhosvar_flat > 0.001).reshape_as(map_0)
+            same_mask = (rhosvar_flat<delta_var/10).reshape_as(map_0)
+
+            # rhosmean
+            rhosmean = erro_maps.mean(dim=1)  # BHW
+            rhosmean_flat = rhosmean.flatten(start_dim=1)#b,h*w
+            delta_mean = rhosmean_flat.mean(dim=1).unsqueeze(dim=1)#b,1
+            mean_mask = (rhosmean_flat <2* delta_mean).reshape_as(map_0)
+
+            # mean mask : 1 说明为moving region
+            #ind_mov = (1 - var_mask) * mean_mask
+
+            #static = (1 - var_mask) * (1 - mean_mask)
+            identity_selection = (idxs_0 >= 2)#
+
+            final_mask = var_mask.float()*mean_mask.float()*identity_selection.float()
+            to_optimise = map_0 * final_mask
+            # mo_ob = (var < delta)
+
+            #identity_selection = (idxs_0 > identity_reprojection_loss.shape[1] - 1)
+
+            outputs["identity_selection/{}".format(scale)] = identity_selection.float()
+            outputs["mean_mask/{}".format(scale)] = mean_mask.float()
+            outputs["var_mask/{}".format(scale)] = var_mask.float()
+
+
+
+            outputs["final_selection/{}".format(scale)] = final_mask.float()
+
+            # ---------------------
+
+            loss += to_optimise.mean()
+
+            mean_disp = disp.mean(2, True).mean(3, True)
+            norm_disp = disp / (mean_disp + 1e-7)
+            smooth_loss = get_smooth_loss(norm_disp, color)
+
+            loss += self.opt.disparity_smoothness * smooth_loss / (2 ** scale)
+            total_loss += loss
+            losses["loss/{}".format(scale)] = loss
+
+        total_loss /= self.num_scales
+        losses["loss"] = total_loss
+        return losses
+
+
+```
+identical mask
+
+```python
+
+ # -------------------------
+            map_0, idxs_0 = torch.min(erro_maps, dim=1)  # b,4,h,w-->bhw,bhw
+            map1, idxs_1 = torch.min(reprojection_loss,dim=1)
+
+            #rhosvar = erro_maps.var(dim=1, unbiased=False)  # BHW
+            #rhosvar_flat = rhosvar.flatten(start_dim=1)  # B,H*W
+            #median, _ = rhosvar_flat.median(dim=1)  # b
+            #rhosvar_flat /= median.unsqueeze(1)
+            #delta_var = rhosvar_flat.mean(dim=1).unsqueeze(1)  # B
+
+            #var_mask = (rhosvar_flat > 0.001).reshape_as(map_0)
+            #same_mask = (rhosvar_flat<delta_var/10).reshape_as(map_0)
+
+            # rhosmean
+            #rhosmean = erro_maps.mean(dim=1)  # BHW
+            #rhosmean_flat = rhosmean.flatten(start_dim=1)#b,h*w
+            #delta_mean = rhosmean_flat.mean(dim=1).unsqueeze(dim=1)#b,1
+            #mean_mask = (rhosmean_flat <2* delta_mean).reshape_as(map_0)
+
+            # mean mask : 1 说明为moving region
+            #ind_mov = (1 - var_mask) * mean_mask
+
+            #static = (1 - var_mask) * (1 - mean_mask)
+            identity_selection = (idxs_0 >= 2)#
+
+            #final_mask = var_mask.float()*mean_mask.float()*identity_selection.float()
+            to_optimise = map1 * identity_selection.float()
+            # mo_ob = (var < delta)
+
+            #identity_selection = (idxs_0 > identity_reprojection_loss.shape[1] - 1)
+
+            outputs["identity_selection/{}".format(scale)] = identity_selection.float()
+            #outputs["mean_mask/{}".format(scale)] = mean_mask.float()
+            #outputs["var_mask/{}".format(scale)] = var_mask.float()
+
+
+
+            #outputs["final_selection/{}".format(scale)] = final_mask.float()
+
+            # ---------------------
+```

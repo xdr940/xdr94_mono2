@@ -15,8 +15,20 @@ file_dir = os.path.dirname(__file__)  # the directory that options.py resides in
 class MD_train_opts:
     def __init__(self):
         self.parser = argparse.ArgumentParser(description="Monodepthv2 training options")
+        self.parser.add_argument("--num_epochs", type=int, help="number of epochs", default=20)
 
-        # PATHS
+        self.parser.add_argument("--split",
+                                 type=str,
+                                 help="which training split to use",
+                                 choices=["eigen_zhou", "custom", 'custom_small', "eigen_full", "odom", "benchmark",
+                                          "mc", "mc_small"],
+                                 # default="custom_small")
+                                 default="eigen_zhou")
+        self.parser.add_argument("--load_weights_folder",
+                                 type=str,
+                                 # default='/home/roit/models/monodepth2_official/mono_640x192',
+                                 # default='/media/roit/hard_disk_2/Models/monodepth2/04-23-00:50/models/weights_10',#继续训练
+                                 help="name of model to load, if not set, train from imgnt pretrained")
         self.parser.add_argument("--data_path",
                                  type=str,
                                  help="path to the training data",
@@ -29,24 +41,17 @@ class MD_train_opts:
 
         self.parser.add_argument("--masks",
                                  default=['identity_selection',
+                                          'identity_selection2',
                                           'final_selection',
                                           'var_mask',
-                                          'rhosvar',
-                                          'to_optimise',
-                                          'static',
-                                          'ind_mov',
-                                          'mean_mask'])
+                                          'mean_mask',
+                                          'mean_mask0',
+                                          'mean_pixels',
+                                          'rhosmean'
+                                         ])
         self.parser.add_argument('--root',type=str,
                                  help="project root",
                                  default='/home/roit/aws/aprojects/xdr94_mono2')
-        # TRAINING options
-
-        self.parser.add_argument("--split",
-                                 type=str,
-                                 help="which training split to use",
-                                 choices=["eigen_zhou", "custom",'custom_small',"eigen_full", "odom", "benchmark","mc","mc_small"],
-                                 #default="custom_small")
-                                 default="eigen_zhou")
 
         self.parser.add_argument("--dataset",
                                  type=str,
@@ -95,7 +100,6 @@ class MD_train_opts:
         # OPTIMIZATION options
         self.parser.add_argument("--batch_size",type=int,help="batch size",default=8)#
         self.parser.add_argument("--learning_rate",type=float,help="learning rate",default=1e-4)
-        self.parser.add_argument("--num_epochs",type=int,help="number of epochs",default=20)
         self.parser.add_argument("--start_epoch",type=int,help="for subsequent training",
                                  #default=10,
                                  default=0,
@@ -105,11 +109,7 @@ class MD_train_opts:
         self.parser.add_argument("--scheduler_step_size",type=int,help="step size of the scheduler",default=15)
 
         # LOADING args for subsquent training or train from pretrained/scratch
-        self.parser.add_argument("--load_weights_folder",
-                                 type=str,
-                                 #default='/home/roit/models/monodepth2_official/mono_640x192',
-                                 #default='/media/roit/hard_disk_2/Models/monodepth2/04-23-00:50/models/weights_10',#继续训练
-                                 help="name of model to load, for training or test")
+
         self.parser.add_argument("--models_to_load",
                                  nargs="+",
                                  type=str,
@@ -292,6 +292,45 @@ class run_infer_from_txt:
         self.parser.add_argument('--model_path', type=str, default='/home/roit/models/monodepth2',
                             help='root path of models')
         self.parser.add_argument('--ext', type=str, help='image extension to search for in folder', default="*.jpg")
+        self.parser.add_argument("--no_cuda", help='if set, disables CUDA', action='store_true')
+        self.parser.add_argument("--out_ext", default="*.png")
+
+    def parse(self):
+        self.options = self.parser.parse_args()
+        return self.options
+
+class run_inference_opts:
+    def __init__(self):
+        self.parser = argparse.ArgumentParser(
+            description='Simple testing funtion for Monodepthv2 models.')
+
+        self.parser.add_argument('--image_path', type=str,
+                            default='/home/roit/Desktop/short',
+                            help='path to a test image or folder of images')
+        self.parser.add_argument('--out_path', type=str, default=None, help='path to a test image or folder of images')
+        self.parser.add_argument('--npy_out', default=False)
+        self.parser.add_argument('--model_name', type=str,
+                            help='name of a pretrained model to use',
+                            default='mono_640x192',
+                            choices=[
+                                "last_model",
+                                "mono_640x192",
+                                "stereo_640x192",
+                                "mono+stereo_640x192",
+                                "mono_no_pt_640x192",
+                                "stereo_no_pt_640x192",
+                                "mono+stereo_no_pt_640x192",
+                                "mono_1024x320",
+                                "stereo_1024x320",
+                                "mono+stereo_1024x320"])
+        self.parser.add_argument('--model_path',
+                            type=str,
+                            default='/home/roit/models/monodepth2_official',
+                            # default='/home/roit/models/monodepth2/identical_var_mean',
+                            help='root path of models')
+        self.parser.add_argument('--ext', type=str, help='image extension to search for in folder'
+                            # default="*.jpg"
+                            )
         self.parser.add_argument("--no_cuda", help='if set, disables CUDA', action='store_true')
         self.parser.add_argument("--out_ext", default="*.png")
 

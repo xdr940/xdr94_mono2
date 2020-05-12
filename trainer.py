@@ -30,8 +30,7 @@ from datasets import KITTIDepthDataset
 from datasets import MCDataset
 import networks
 from utils.logger import TermLogger,AverageMeter
-from SoftHistogram2D.soft_hist import SoftHistogram2D_H
-
+from utils.erodila import rectify
 class Trainer:
     def __init__(self, options):
         self.opt = options
@@ -60,8 +59,11 @@ class Trainer:
 
 #decoder and encoder
         #depth encoder
-        print("depth encoder pretrained or scratch: "+self.opt.weights_init)
-        print("depth encoder load:"+self.opt.encoder_path)
+        if self.opt.load_weights_folder:
+            pass
+        else:
+            print("depth encoder pretrained or scratch: "+self.opt.weights_init)
+            print("depth encoder load:"+self.opt.encoder_path)
         self.models["encoder"] = networks.ResnetEncoder(
             num_layers=self.opt.num_layers,
             pretrained=self.opt.weights_init == "pretrained",
@@ -79,8 +81,11 @@ class Trainer:
         #if self.opt.pose_model_type == "separate_resnet":
 
         #pose encoder
-        print("pose encoder pretrained or scratch: " + self.opt.weights_init)
-        print("pose encoder load:" + self.opt.encoder_path)
+        if self.opt.load_weights_folder:
+            pass
+        else:
+            print("pose encoder pretrained or scratch: " + self.opt.weights_init)
+            print("pose encoder load:" + self.opt.encoder_path)
         self.models["pose_encoder"] = networks.ResnetEncoder(
                                         self.opt.num_layers,
                                         self.opt.weights_init == "pretrained",
@@ -519,45 +524,55 @@ class Trainer:
 
             erro_maps = torch.cat((identity_reprojection_loss, reprojection_loss), dim=1)#b4hw
 
-#-------------------------
+            # -------------------------
             map_0, idxs_0 = torch.min(erro_maps, dim=1)  # b,4,h,w-->bhw,bhw
-            rhosvar = erro_maps.var(dim=1,unbiased=False)#bhw4 --> BHW
-            rhosvar_flat = rhosvar.flatten(start_dim=1)#B,H*W
+            map1, idxs_1 = torch.min(reprojection_loss,dim=1)
 
-            #rhosvar normalization
-            #max norm
-            #max,_ = rhosvar_flat.max(dim=1)#B
-            #rhosvar_flat = rhosvar_flat/max.unsqueeze(1)#b,hw / b,1 = b,h*w
+            rhosvar = erro_maps.var(dim=1, unbiased=False)  # BHW
+            rhosvar_flat = rhosvar.flatten(start_dim=1)  # B,H*W
+            median, _ = rhosvar_flat.median(dim=1)  # b
+            rhosvar_flat /= median.unsqueeze(1)
+            delta_var = rhosvar_flat.mean(dim=1).unsqueeze(1)  # B
 
-            #mean norm
-            median,_ = rhosvar_flat.median(dim=1)#b
-            rhosvar_flat /= median.unsqueeze(1)#b,1 / b,1
+            #var_mask = (rhosvar_flat > 0.001).reshape_as(map_0)
+            var_mask = (rhosvar_flat>delta_var/10).reshape_as(map_0)
+            #两种效果基本完全相同,末端测试0.001白色稍微微多一些
 
-            delta_var,_ = rhosvar_flat.median(dim=1)#B
-            var_mask = (rhosvar_flat > delta_var.unsqueeze(1)).reshape_as(rhosvar)
+            # rhosmean
+            rhosmean = erro_maps.mean(dim=1)  # BHW
+            rhosmean_flat = rhosmean.flatten(start_dim=1)#b,h*w
+            delta_mean = rhosmean_flat.mean(dim=1).unsqueeze(dim=1)#b,1
+            mean_mask = (rhosmean_flat <2* delta_mean).reshape_as(map_0)
+            mean_mask0 = rectify(mean_mask)
+            mean_mask_anti = 1 - mean_mask0
+            mean_pixels = map1 *mean_mask_anti.float()
 
-            #final_selection =  var_mask.float()#rhosvar.float()
-            #final_selection = rhosvar*(1- var_mask.float()) + var_mask.float()
-            to_optimise = map_0 *var_mask.float()#loss map
-            #to_optimise = map_0 * var_mask.float()#loss map
-            #to_optimise = reprojection_loss.float()#loss map
+            # mean mask : 1 说明为moving region
+            #ind_mov = (1 - var_mask) * mean_mask
+
+            #static = (1 - var_mask) * (1 - mean_mask)
+            #identity_selection = (idxs_0 > identity_reprojection_loss.shape[1] - 1)
+            identity_selection = (idxs_0 >= 2)#
+            identity_selection2 = rectify(identity_selection)
+            final_mask = var_mask.float()*mean_mask0.float()*identity_selection2.float()
+            to_optimise = map1 * final_mask
 
 
+            outputs["identity_selection/{}".format(scale)] = identity_selection.float()
+            outputs["identity_selection2/{}".format(scale)] = identity_selection2.float()
 
-            outputs["to_optimise/{}".format(scale)] = to_optimise.float()
-
-            #outputs["rhosvar/{}".format(scale)] = 1- var_mask.float()
-
+            outputs["mean_mask/{}".format(scale)] = mean_mask.float()
+            outputs["mean_mask0/{}".format(scale)] = mean_mask0.float()
 
             outputs["var_mask/{}".format(scale)] = var_mask.float()
-            #outputs["final_selection/{}".format(scale)] = final_selection
 
 
 
+            outputs["final_selection/{}".format(scale)] = final_mask.float()
+            outputs["mean_pixels/{}".format(scale)] = mean_pixels.float()
+            outputs["rhosmean/{}".format(scale)] = rhosmean.float()
 
-            #---------------------
-
-
+            # ---------------------
 
             loss += to_optimise.mean()
 

@@ -125,7 +125,15 @@ def main0():
     a = torch.tensor([1,2,1.,2])
     print(    a.var(False))
 
-main()
+#main()
 
+a = torch.tensor([1,2,3.,4])
+print(torch.softmax(a,dim=0))
+a = torch.tensor([10,20,30.,40])
+print(torch.softmax(a,dim=0))
+a = torch.tensor([.1,.2,.3,.4])
+print(torch.softmax(a,dim=0).sum())
+a = torch.tensor([2,4,6.,8])
+print(torch.softmax(a,dim=0).sum())
 #print(var_norm.shape)
 #print(var_norm)

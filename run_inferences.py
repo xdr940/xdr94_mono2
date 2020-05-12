@@ -21,35 +21,8 @@ from torchvision import transforms, datasets
 
 import networks
 from layers import disp_to_depth
-from utils.official import download_model_if_doesnt_exist
+from options import run_inference_opts
 
-
-def parse_args():
-    parser = argparse.ArgumentParser(
-        description='Simple testing funtion for Monodepthv2 models.')
-
-    parser.add_argument('--image_path', type=str,default='/home/roit/datasets/VisDrone/VisDrone2018-SOT-test/sequences/uav0000087_00290_s',help='path to a test image or folder of images')
-    parser.add_argument('--out_path', type=str,default=None,help='path to a test image or folder of images')
-    parser.add_argument('--npy_out',default=False)
-    parser.add_argument('--model_name', type=str,
-                        help='name of a pretrained model to use',
-                        default='mono_640x192',
-                        choices=[
-                            "mono_640x192",
-                            "stereo_640x192",
-                            "mono+stereo_640x192",
-                            "mono_no_pt_640x192",
-                            "stereo_no_pt_640x192",
-                            "mono+stereo_no_pt_640x192",
-                            "mono_1024x320",
-                            "stereo_1024x320",
-                            "mono+stereo_1024x320"])
-    parser.add_argument('--model_path',type=str,default='/home/roit/models/monodepth2',help='root path of models')
-    parser.add_argument('--ext', type=str,help='image extension to search for in folder', default="*.jpg")
-    parser.add_argument("--no_cuda",help='if set, disables CUDA',action='store_true')
-    parser.add_argument("--out_ext",default="*.png")
-
-    return parser.parse_args()
 
 
 def test_simple(args):
@@ -60,8 +33,8 @@ def test_simple(args):
         device = torch.device("cuda")
     else:
         device = torch.device("cpu")
-
-    download_model_if_doesnt_exist(args.model_path,args.model_name)
+    print(args.model_path)
+    #download_model_if_doesnt_exist(args.model_path,args.model_name)
 
     model_path = os.path.join(args.model_path, args.model_name)
 
@@ -107,7 +80,7 @@ def test_simple(args):
 
 #3. PREDICTING ON EACH IMAGE IN TURN
     with torch.no_grad():
-        for  image_path in tqdm(in_path.files(args.ext)):
+        for  image_path in tqdm(in_path.files()):
 
 
 
@@ -122,7 +95,9 @@ def test_simple(args):
             features = encoder(input_image)#a list from 0 to 4
             outputs = depth_decoder(features)# dict , 4 disptensor
 
-            disp = outputs[("disp", 0,0)]# has a same size with input
+#            disp = outputs[("disp", 0,0)]# has a same size with input
+            disp = outputs[("disp", 0)]# has a same size with input
+
             disp_resized = torch.nn.functional.interpolate(
                 disp, (original_height, original_width), mode="bilinear", align_corners=False)
 
@@ -145,5 +120,6 @@ def test_simple(args):
 
 
 if __name__ == '__main__':
-    args = parse_args()
-    test_simple(args)
+    options = run_inference_opts()
+    opts = options.parse()
+    test_simple(opts)
