@@ -23,8 +23,8 @@ def export_gt_depths_kitti():
     parser.add_argument('--split',
                         type=str,
                         help='which split to export gt from',
-                        default='eigen_benchmark',
-                        choices=["eigen", "eigen_benchmark", "custom"])
+                        default='eigen_zhou',
+                        choices=["eigen","eigen_zhou", "eigen_benchmark", "custom"])
 
     parser.add_argument('--data_path',#2012年版本最原始的
                         type=str,

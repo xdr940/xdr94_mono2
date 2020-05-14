@@ -15,18 +15,19 @@ file_dir = os.path.dirname(__file__)  # the directory that options.py resides in
 class MD_train_opts:
     def __init__(self):
         self.parser = argparse.ArgumentParser(description="Monodepthv2 training options")
-        self.parser.add_argument("--num_epochs", type=int, help="number of epochs", default=20)
+        self.parser.add_argument("--num_epochs", type=int, help="number of epochs", default=5)
 
         self.parser.add_argument("--split",
                                  type=str,
                                  help="which training split to use",
                                  choices=["eigen_zhou", "custom", 'custom_small', "eigen_full", "odom", "benchmark",
                                           "mc", "mc_small"],
-                                 # default="custom_small")
-                                 default="eigen_zhou")
+                                 default="custom_small")
+                                 #default="eigen_zhou")
         self.parser.add_argument("--load_weights_folder",
                                  type=str,
-                                 # default='/home/roit/models/monodepth2_official/mono_640x192',
+                                 #default="/home/roit/models/monodepth2/fullwitherodil/last_model",
+                                 default='/home/roit/models/monodepth2_official/mono_640x192',
                                  # default='/media/roit/hard_disk_2/Models/monodepth2/04-23-00:50/models/weights_10',#继续训练
                                  help="name of model to load, if not set, train from imgnt pretrained")
         self.parser.add_argument("--data_path",
@@ -168,13 +169,21 @@ class MD_eval_opts:
         # default="/home/roit/datasets/MC")
         self.parser.add_argument("--depth_eval_path",
                                  help="",
-                                 default="/home/roit/models/monodepth2/checkpoints/04-24-01:23/models/weights_19/",
-                                 # default='/home/roit/models/monodepth2_official/mono_640x192',#官方给出的模型文件夹
+                                 default='/home/roit/models/monodepth2_official/mono_640x192',#官方给出的模型文件夹
+                                 #default="/home/roit/models/monodepth2/reproduction/models/weights_19",
+                                 #default="/home/roit/models/monodepth2/pure_var_mask_median/models/weights_19",
+                                 #default="/home/roit/models/monodepth2/avg_loss/models/weights_19",
+                                 #default="/home/roit/models/monodepth2/identicalmask/models/weights_4",
+                                 #default="/home/roit/models/monodepth2/identical+var/models/weights_7",
+                                 #default="/home/roit/models/monodepth2/identical_var_mean/last_model",
+                                 #default="/home/roit/models/monodepth2/fullwitherodil/last_model",
+                                 #default="/home/roit/models/monodepth2/fullwitherodil10epoch/last_model",
+
                                  )
         self.parser.add_argument("--eval_split",
                                  type=str,
                                  default="eigen",  # eigen
-                                 choices=["eigen", "eigen_benchmark", "benchmark", "odom_9", "odom_10", "custom", "mc"],
+                                 choices=["eigen_zhou","eigen", "eigen_benchmark", "benchmark", "odom_9", "odom_10", "custom", "mc"],
                                  help="which split to run eval on")
         self.parser.add_argument("--num_layers",
                                  type=int,
