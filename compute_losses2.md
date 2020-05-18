@@ -55,7 +55,7 @@
 
             # ---------------------
 ```
-
+2020 05 15 1400左右
 .2 min_{3,4} + M_{id} 
 
 ```python
@@ -96,10 +96,10 @@ outputs["var_mask/{}".format(scale)] = var_mask.float()
 
 ```
 
-
+2020 0514 1927
 
 .4 min_{3,4} +M_{id} + M_v 
-
+05 16 23 53
 ```python
 
 map_1234, idxs_0 = torch.min(erro_maps, dim=1)  # b,4,h,w-->bhw,bhw
@@ -116,6 +116,8 @@ to_optimise = map_34 * final_mask
 
 
 outputs["var_mask/{}".format(scale)] = var_mask.float()
+outputs["identity_selection/{}".format(scale)] = identity_selection.float()
+
 
 ```
 
@@ -123,7 +125,7 @@ outputs["var_mask/{}".format(scale)] = var_mask.float()
 
 
 .5 min_{3,4} + M_{id} + M_v + M_ean
-
+ 05-17-17:02 16+5
 ```python
 
 map_1234, idxs_0 = torch.min(erro_maps, dim=1)  # b,4,h,w-->bhw,bhw
@@ -150,6 +152,8 @@ outputs["final_selection/{}".format(scale)] = final_mask.float()
 
 
 
+2020 0514 1357
+2020 0514 1927
 
 .6 min_{3,4} + M_{id} + M_v + f(M_ean)
 

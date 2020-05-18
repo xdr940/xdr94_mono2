@@ -70,8 +70,8 @@ class MCDataset(MonoDataset):
 
 
     def get_image_path(self, folder, frame_index):
-        f_str = "{:07d}{}".format(frame_index, self.img_ext)
-        image_path = Path(self.data_path)/ folder/"img/{}".format(f_str)
+        f_str = "{:04d}{}".format(frame_index, self.img_ext)
+        image_path = Path(self.data_path)/ folder/"color/{}".format(f_str)
         return image_path
 
 
@@ -86,6 +86,6 @@ class MCDataset(MonoDataset):
         return depth_gt#[0~1]
 
     def get_depth_path(self, folder, frame_index):
-        f_str = "{:07d}{}".format(frame_index, self.img_ext)
+        f_str = "{:04d}{}".format(frame_index, self.img_ext)
         depth_path = Path(self.data_path) / folder / "depth/{}".format(f_str)
         return depth_path

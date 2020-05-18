@@ -526,16 +526,16 @@ class Trainer:
             erro_maps = torch.cat((identity_reprojection_loss, reprojection_loss), dim=1)#b4hw
 
 # --------------------------------------------------------------
+            # id
             map_1234, idxs_0 = torch.min(erro_maps, dim=1)  # b,4,h,w-->bhw,bhw
             map_34, idxs_1 = torch.min(reprojection_loss, dim=1)
 
-            var_mask  = VarMask(erro_maps)
+            var_mask = VarMask(erro_maps)
             mean_mask = MeanMask(erro_maps)
 
+            identity_selection = (idxs_0 >= 2).float()  #
 
-            identity_selection = (idxs_0 >= 2).float() #
-
-            final_mask = var_mask* mean_mask * identity_selection
+            final_mask = var_mask * mean_mask * identity_selection
             to_optimise = map_34 * final_mask
 
             outputs["identity_selection/{}".format(scale)] = identity_selection.float()

@@ -22,12 +22,12 @@ class MD_train_opts:
                                  help="which training split to use",
                                  choices=["eigen_zhou", "custom", 'custom_small', "eigen_full", "odom", "benchmark",
                                           "mc", "mc_small"],
-                                 default="custom_small")
+                                 default="eigen_zhou")
                                  #default="eigen_zhou")
         self.parser.add_argument("--load_weights_folder",
                                  type=str,
-                                 #default="/home/roit/models/monodepth2/fullwitherodil/last_model",
-                                 default='/home/roit/models/monodepth2_official/mono_640x192',
+                                 default="/home/roit/models/monodepth2/identical_var_mean/last_model",
+                                 #default='/home/roit/models/monodepth2_official/mono_640x192',
                                  # default='/media/roit/hard_disk_2/Models/monodepth2/04-23-00:50/models/weights_10',#继续训练
                                  help="name of model to load, if not set, train from imgnt pretrained")
         self.parser.add_argument("--data_path",
@@ -169,8 +169,8 @@ class MD_eval_opts:
         # default="/home/roit/datasets/MC")
         self.parser.add_argument("--depth_eval_path",
                                  help="",
-                                 default='/home/roit/models/monodepth2_official/mono_640x192',#官方给出的模型文件夹
-                                 #default="/home/roit/models/monodepth2/reproduction/models/weights_19",
+                                 #default='/home/roit/models/monodepth2_official/mono_640x192',#官方给出的模型文件夹
+                                 #default="/home/roit/models/monodepth2/reproduction/models/weights_4",
                                  #default="/home/roit/models/monodepth2/pure_var_mask_median/models/weights_19",
                                  #default="/home/roit/models/monodepth2/avg_loss/models/weights_19",
                                  #default="/home/roit/models/monodepth2/identicalmask/models/weights_4",
@@ -178,6 +178,12 @@ class MD_eval_opts:
                                  #default="/home/roit/models/monodepth2/identical_var_mean/last_model",
                                  #default="/home/roit/models/monodepth2/fullwitherodil/last_model",
                                  #default="/home/roit/models/monodepth2/fullwitherodil10epoch/last_model",
+                                 #default="/home/roit/models/monodepth2/05-14-13:57/models/weights_4"#
+                                 #default="/home/roit/models/monodepth2/checkpoints/05-14-19:27/models/weights_19"#
+                                 #default="/home/roit/models/monodepth2/checkpoints/05-16-23:53/models/weights_9"
+                                 #default = "/home/roit/models/monodepth2/checkpoints/05-15-14:40/models/weights_19"
+                                 # default = "/home/roit/models/monodepth2/checkpoints/05-15-14:40/models/weights_19"
+                                 default="/home/roit/models/monodepth2/checkpoints/05-18-00:34/models/weights_4"
 
                                  )
         self.parser.add_argument("--eval_split",
@@ -253,7 +259,7 @@ class MCOptions:
         # TEST MCDataset
 
         self.parser.add_argument("--data_path",
-                                 default="/home/roit/datasets/MC")
+                                 default="/home/roit/datasets/MC2")
         self.parser.add_argument("--height", default=192)
         self.parser.add_argument("--width", default=256)
         self.parser.add_argument("--frame_idxs",default=[-1,0,1])
@@ -262,9 +268,7 @@ class MCOptions:
         self.parser.add_argument("--batch_size",default=1)
         self.parser.add_argument("--num_workers",default=1)
 
-        self.parser.add_argument("--splits",default='MC')
-
-
+        self.parser.add_argument("--splits",default='mc')
 
     def parse(self):
         self.options = self.parser.parse_args()
