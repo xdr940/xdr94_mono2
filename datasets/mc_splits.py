@@ -13,6 +13,7 @@
 from path import Path
 from random import random
 import argparse
+import tqdm
 
 
 def parse_args():
@@ -22,7 +23,7 @@ def parse_args():
     parser.add_argument('--dataset_path', type=str,default='/home/roit/datasets/MC',help='path to a test image or folder of images')
     parser.add_argument("--txt_style",default='mc',choices=['mc','visdrone'])
     parser.add_argument('--out_path', type=str,default=None,help='path to a test image or folder of images')
-    parser.add_argument("--num",default=100,type=str)
+    parser.add_argument("--num",default=6000,type=str)
     parser.add_argument("--proportion",default=[0.7,0.2,0.1],help="train, val, test")
     parser.add_argument("--out_name",default=None)
 
@@ -59,7 +60,7 @@ def generate_mc(args):
 
     dataset_path = Path(args.dataset_path)
 
-    out_dir = Path("mc_splits")
+    out_dir = Path("mc")
     out_dir.mkdir_p()
     train_txt_p = out_dir/'train_files.txt'
     val_txt_p = out_dir/'val_files.txt'
@@ -84,6 +85,7 @@ def generate_mc(args):
 
     idx_list=[]
     #for i in range(args.num):
+    print('...1/2')
     while(len(idx_list)<args.num):
         rand = int(random()*len(item_list))
         #rand=55
@@ -94,6 +96,7 @@ def generate_mc(args):
 
     total_list = []
 
+    print('...2/2')
     for i in idx_list:
         total_list.append(item_list[i].relpath(dataset_path).strip('.png'))
 
@@ -105,7 +108,7 @@ def generate_mc(args):
     writelines(total_list[train_bound:val_bound],val_txt_p)
     writelines(total_list[val_bound:test_bound],test_txt_p)
 
-
+    print('ok')
 
 
 

@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 
 from layers import disp_to_depth
 from utils.official import readlines
-from options import MonodepthOptions
+from options import MCOptions
 import datasets
 import networks
 from tqdm import  tqdm
@@ -224,5 +224,5 @@ sq_rel and rmse度量的时候需要进行量级统一
 
 
 if __name__ == "__main__":
-    options = MonodepthOptions()
+    options = MCOptions()
     evaluate(options.parse())

@@ -211,3 +211,34 @@ outputs["var_mask/{}".format(scale)] = var_mask.float()
 outputs["final_selection/{}".format(scale)] = final_mask.float()
 
 ```
+
+
+M_id + M_var+ M_ean
+rectify
+```python
+            map_1234, idxs_0 = torch.min(erro_maps, dim=1)  # b,4,h,w-->bhw,bhw
+            map_34, idxs_1 = torch.min(reprojection_loss, dim=1)
+            map_12,idxs_12 = torch.min(identity_reprojection_loss,dim=1)
+
+            #mean_12 = torch.mean(identity_reprojection_loss,dim=1)
+            #mean_1234 = torch.mean(erro_maps,dim=1)
+
+            var_mask = VarMask(erro_maps)
+            mean_mask = MeanMask(erro_maps)
+            identity_selection = IdenticalMask(idxs_0)
+
+            #identity_selection_new = (1-var_mask).float()*(idxs_0 < 2).float()    #
+
+            final_mask = var_mask * mean_mask * identity_selection
+            to_optimise = map_34 * final_mask
+
+            outputs["identity_selection/{}".format(scale)] = identity_selection.float()
+
+            outputs["mean_mask/{}".format(scale)] = mean_mask.float()
+
+            outputs["var_mask/{}".format(scale)] = var_mask.float()
+
+            outputs["final_selection/{}".format(scale)] = final_mask.float()
+
+```
+ 

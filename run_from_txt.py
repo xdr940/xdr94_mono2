@@ -34,9 +34,13 @@ def main(args):
     else:
         device = torch.device("cpu")
 
-    download_model_if_doesnt_exist(args.model_path,args.model_name)
 
-    model_path = os.path.join(args.model_path, args.model_name)
+
+    #download_model_if_doesnt_exist(args.model_path,args.model_name)
+
+    model_path = Path(args.model_path)/ args.model_name
+    if not model_path.exists():
+        print(model_path+" does not exists")
 
     print("-> Loading model from ", model_path)
     encoder_path = os.path.join(model_path, "encoder.pth")
