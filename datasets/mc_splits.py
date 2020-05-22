@@ -64,7 +64,7 @@ def generate_mc(args):
     out_dir.mkdir_p()
     train_txt_p = out_dir/'train_files.txt'
     val_txt_p = out_dir/'val_files.txt'
-    test_txt_p = out_dir/'test_files.txt'
+    test_txt_p = out_dir/'test_files2.txt'
 
     dirs_o1 = dataset_path
     blocks = dirs_o1.dirs()

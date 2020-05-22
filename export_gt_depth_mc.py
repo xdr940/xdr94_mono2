@@ -31,7 +31,7 @@ def export_gt_depths_mc(opt):
 
 
     split_folder = Path('.') / "splits" / opt.split
-    lines = readlines(split_folder / "test_files.txt")
+    lines = readlines(split_folder / "test_files2.txt")
 
     print("Exporting ground truth depths for {}".format(opt.split))
 

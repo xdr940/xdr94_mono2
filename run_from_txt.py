@@ -77,7 +77,7 @@ def main(args):
 
     #files
     root = Path(os.path.dirname(__file__))
-    txt = root/'splits'/args.txt_style/'test_files.txt'
+    txt = root/'splits'/args.txt_style/'test_files2.txt'
     in_files = readlines(txt)
     #out
     if args.out_path !=None:
@@ -91,7 +91,7 @@ def main(args):
             item = item.split(' ')
             if item[2]=='l':camera ='image_02'
             elif item[2]=='r': camera= 'image_01'
-            files.append(in_path/item[0]/camera/'data'/item[1]+'.png')
+            files.append(in_path/item[0]/camera/'data'/"{:010d}.png".format(int(item[1])))
     elif args.txt_style =='mc':
         for item in  in_files:
             item = item.split(' ')

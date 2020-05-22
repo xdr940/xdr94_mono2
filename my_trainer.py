@@ -536,12 +536,17 @@ class Trainer:
 
             var_mask = VarMask(erro_maps)
             mean_mask = MeanMask(erro_maps)
-            identity_selection = IdenticalMask(idxs_0)
+            identity_selection = IdenticalMask(map_12,map_34)
 
             #identity_selection_new = (1-var_mask).float()*(idxs_0 < 2).float()    #
 
-            final_mask = var_mask * mean_mask * identity_selection
+            final_mask = var_mask *(mean_mask + identity_selection)
             to_optimise = map_34 * final_mask
+
+
+            outputs["map_12/{}".format(scale)] = map_12.float()
+            outputs["map_34/{}".format(scale)] = map_34.float()
+
 
             outputs["identity_selection/{}".format(scale)] = identity_selection.float()
 
