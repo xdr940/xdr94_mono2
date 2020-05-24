@@ -31,7 +31,7 @@ from datasets import MCDataset
 import networks
 from utils.logger import TermLogger,AverageMeter
 from utils.erodila import rectify
-from utils.masks import VarMask,MeanMask,IdenticalMask
+from utils.masks import VarMask,MeanMask,IdenticalMask,float8or
 class Trainer:
     def __init__(self, options):
         self.opt = options
@@ -58,8 +58,9 @@ class Trainer:
         #self.use_pose_net = not (self.opt.use_stereo and self.opt.frame_ids == [0])
 
 
-#decoder and encoder
-        #depth encoder
+#decoder and encode
+
+    #depth encoder
         if self.opt.load_weights_folder:
             pass
         else:
@@ -72,7 +73,7 @@ class Trainer:
         self.models["encoder"].to(self.device)
         self.parameters_to_train += list(self.models["encoder"].parameters())
 
-        #depth decoder
+    #depth decoder
 
         self.models["depth"] = networks.DepthDecoder(
             self.models["encoder"].num_ch_enc, self.opt.scales)
@@ -81,7 +82,7 @@ class Trainer:
 
         #if self.opt.pose_model_type == "separate_resnet":
 
-        #pose encoder
+    #pose encoder
         if self.opt.load_weights_folder:
             pass
         else:
@@ -96,7 +97,7 @@ class Trainer:
         self.parameters_to_train += list(self.models["pose_encoder"].parameters())
 
 
-        #pose decoder
+    #pose decoder
         self.models["pose"] = networks.PoseDecoder(
             self.models["pose_encoder"].num_ch_enc,
             num_input_features=1,
@@ -527,30 +528,36 @@ class Trainer:
 
 # --------------------------------------------------------------
             # id
-            map_1234, idxs_0 = torch.min(erro_maps, dim=1)  # b,4,h,w-->bhw,bhw
+            #map_1234, idxs_0 = torch.min(erro_maps, dim=1)  # b,4,h,w-->bhw,bhw
             map_34, idxs_1 = torch.min(reprojection_loss, dim=1)
-            map_12,idxs_12 = torch.min(identity_reprojection_loss,dim=1)
+            #map_12,idxs_12 = torch.min(identity_reprojection_loss,dim=1)
 
             #mean_12 = torch.mean(identity_reprojection_loss,dim=1)
             #mean_1234 = torch.mean(erro_maps,dim=1)
 
             var_mask = VarMask(erro_maps)
             mean_mask = MeanMask(erro_maps)
-            identity_selection = IdenticalMask(map_12,map_34)
+            #mean_mask_p = rectify(mean_mask)
+            identity_selection = IdenticalMask(erro_maps)
 
             #identity_selection_new = (1-var_mask).float()*(idxs_0 < 2).float()    #
 
-            final_mask = var_mask *(mean_mask + identity_selection)
+            #final_mask = (mean_mask *(1- identity_selection))
+            final_mask = float8or(var_mask ,1-identity_selection)*mean_mask
+
+
             to_optimise = map_34 * final_mask
 
 
-            outputs["map_12/{}".format(scale)] = map_12.float()
-            outputs["map_34/{}".format(scale)] = map_34.float()
+            #outputs["map_12/{}".format(scale)] = map_12.float()
+            #outputs["map_34/{}".format(scale)] = map_34.float()
 
 
-            outputs["identity_selection/{}".format(scale)] = identity_selection.float()
+            outputs["identity_selection/{}".format(scale)] = 1-identity_selection.float()
 
             outputs["mean_mask/{}".format(scale)] = mean_mask.float()
+            #outputs["mean_mask_p/{}".format(scale)] = mean_mask_p.float()
+
 
             outputs["var_mask/{}".format(scale)] = var_mask.float()
 

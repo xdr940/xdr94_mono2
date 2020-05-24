@@ -1,9 +1,9 @@
 
 import torch
 import torch.nn.functional as F
-kernel33 = torch.tensor([0,1,0,
-                           1, 1, 1,
-                           0, 1, 0]).type(torch.float).reshape([1,1, 3, 3]).cuda()
+kernel33 = torch.tensor([0,0.1,0,
+                        1, 1, 1,
+                        0, 0.1, 0]).type(torch.float).reshape([1,1, 3, 3]).cuda()
 weight75 = torch.tensor([0, 0, 0,0,0,
                            1, 1, 1, 1, 1,
                            1, 1, 1, 1, 1,
@@ -27,9 +27,9 @@ def dilation(batch,kernel=kernel33):
     ret = F.conv2d(input=ret, weight=kernel, padding=1)
     ret[ret < w_sum] = 0
     ret /= w_sum
-    ret = F.conv2d(input=ret, weight=kernel, padding=1)
-    ret[ret < w_sum] = 0
-    ret /= w_sum
+    #ret = F.conv2d(input=ret, weight=kernel, padding=1)
+    #ret[ret < w_sum] = 0
+    #ret /= w_sum
     return ret.squeeze(dim=1)
 
 
@@ -43,8 +43,8 @@ def erosion(batch,kernel=kernel33):
     ret[ret > 0] = 1
     ret = F.conv2d(input=ret, weight=kernel, padding=1)
     ret[ret > 0] = 1
-    ret = F.conv2d(input=ret, weight=kernel, padding=1)
-    ret[ret > 0] = 1
+    #ret = F.conv2d(input=ret, weight=kernel, padding=1)
+    #ret[ret > 0] = 1
     return ret.squeeze(dim=1)
 
 def rectify(batch):

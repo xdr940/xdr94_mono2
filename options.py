@@ -16,6 +16,7 @@ class MD_train_opts:
     def __init__(self):
         self.parser = argparse.ArgumentParser(description="Monodepthv2 training options")
         self.parser.add_argument("--num_epochs", type=int, help="number of epochs", default=5)
+        self.parser.add_argument("--batch_size", type=int, help="batch size", default=4)  #
         self.parser.add_argument("--weights_save_frequency",
                                  type=int,
                                  help="number of epochs between each save",
@@ -27,8 +28,8 @@ class MD_train_opts:
                                  choices=["eigen_zhou",
                                           "custom", 'custom_small', "eigen_full", "odom", "benchmark",
                                           "mc", "mc"],
-                                 default="custom")
-                                 #default="eigen_zhou")
+                                 #default="custom")
+                                 default="custom_small")
         self.parser.add_argument("--load_weights_folder",
                                  type=str,
                                  #default="/home/roit/models/monodepth2/identical_var_mean/last_model",
@@ -48,8 +49,8 @@ class MD_train_opts:
         self.parser.add_argument("--log_dir",
                                  type=str,
                                  help="log directory",
-                                 #default='/home/roit/models/monodepth2/checkpoints'
-                                 default = '/home/roit/models/monodepth2/eval_test'
+                                 default='/home/roit/models/monodepth2/eval_test'
+                                 #default = '/home/roit/models/monodepth2/checkpoints'
                                   )
 
 
@@ -59,6 +60,7 @@ class MD_train_opts:
                                           'final_selection',
                                           'var_mask',
                                           'mean_mask',
+                                          'mean_mask_p',
                                           'map_12',
                                           'map_34'
                                          ])
@@ -106,12 +108,11 @@ class MD_train_opts:
 
         self.parser.add_argument("--min_depth",type=float,help="minimum depth",default=0.1)#这里度量就代表m
         self.parser.add_argument("--max_depth",type=float,help="maximum depth",default=80.0)
-        self.parser.add_argument("--dleta",default=0.01,help="variance threashold")
         #self.parser.add_argument("--use_stereo",help="if set, uses stereo pair for training",action="store_true")
         self.parser.add_argument("--frame_ids",nargs="+",type=int,help="frames to load",default=[0, -1, 1])
 
         # OPTIMIZATION options
-        self.parser.add_argument("--batch_size",type=int,help="batch size",default=4)#
+
         self.parser.add_argument("--learning_rate",type=float,help="learning rate",default=1e-4)
         self.parser.add_argument("--start_epoch",type=int,help="for subsequent training",
                                  #default=10,
@@ -194,7 +195,7 @@ class MD_eval_opts:
                                  # default = "/home/roit/models/monodepth2/checkpoints/05-15-14:40/models/weights_19"
                                  #default="/home/roit/models/monodepth2/checkpoints/05-18-00:34/models/weights_4"
                                  #default="/home/roit/models/monodepth2/checkpoints/05-20-00:06/models/weights_19"
-                                 default = "/home/roit/models/monodepth2/checkpoints/05-20-17:20/models/weights_19"
+                                 default = "/home/roit/models/monodepth2/checkpoints/05-23-19:20/models/weights_14"
 
         )
         self.parser.add_argument("--eval_split",
@@ -295,14 +296,14 @@ class run_infer_from_txt:
                             help='path to a test image or folder of images')
         self.parser.add_argument("--txt_style",
                             # default='mc',
-                            default='custom',
+                            default='eigen',
                             choices=['custom', 'mc', 'visdrone', 'eigen', 'mc'])
-        self.parser.add_argument('--out_path', type=str, default='custom_problematic_sqs_05201720',
+        self.parser.add_argument('--out_path', type=str, default='eigen_05231920_w19',
                             help='path to a test image or folder of images')
         self.parser.add_argument('--npy_out', default=False)
         self.parser.add_argument('--model_name', type=str,
                             help='name of a pretrained model to use',
-                            default='weights_19',
+                            default='weights_14',
                             #default='mono_640x192',
                                  choices=[
                                 "last_model",
@@ -319,7 +320,7 @@ class run_infer_from_txt:
                                  #default='/home/roit/models/monodepth2_official',
                                  #default='/home/roit/models/monodepth2/fullwitherodil',
                                  #default='/home/roit/models/monodepth2/identical_var_mean',
-                                 default="/home/roit/models/monodepth2/05-20-17:20/models",
+                                 default="/home/roit/models/monodepth2/checkpoints/05-23-19:20/models",
         help='root path of models')
         self.parser.add_argument('--ext', type=str, help='image extension to search for in folder', default="*.jpg")
         self.parser.add_argument("--no_cuda", help='if set, disables CUDA', action='store_true')

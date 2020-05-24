@@ -1,12 +1,29 @@
+#move files
+from path import Path
+import re
+from utils.official import readlines
+import os
+from tqdm import  tqdm
 
-#for i in range(339):
-#    print("2011_09_29/2011_09_29_drive_0004_sync {:010d} l".format(i))
 
 
-import torch
+def main():
+    dataset = Path("/home/roit/datasets/kitti")
 
+    wk_root = Path('/home/roit/aws/aprojects/xdr94_mono2')
+    root = wk_root / 'splits/eigen/test_files.txt'
 
-a = torch.tensor([1,2,3])
-b = torch.tensor([0,1,4])
+    out_path = wk_root / 'eigen_test_img'
+    out_path.mkdir_p()
+    files = readlines(root)
+    for item in tqdm(files):
+        dir,pre,num,lr = re.split(' |/',item)
+        if lr =='l':
+            out_name = pre +'_'+ num+'_'+lr+'.png'
+            cmd = 'cp '+ dataset/dir/pre/'image_02/data'/num+'.png'+ ' '+out_path/out_name
+            os.system(cmd)
 
-print((a>b))
+    print('ok')
+
+if __name__ == '__main__':
+    main()

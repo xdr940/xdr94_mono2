@@ -87,7 +87,7 @@ def evaluate(opt):
 
 
     #model loading
-    filenames = readlines(splits_dir/opt.eval_split/ "test_files2.txt")
+    filenames = readlines(splits_dir/opt.eval_split/ "test_files.txt")
     encoder_path = depth_eval_path/"encoder.pth"
     decoder_path = depth_eval_path/ "depth.pth"
 

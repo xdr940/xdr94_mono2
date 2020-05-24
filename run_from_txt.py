@@ -77,7 +77,7 @@ def main(args):
 
     #files
     root = Path(os.path.dirname(__file__))
-    txt = root/'splits'/args.txt_style/'test_files2.txt'
+    txt = root/'splits'/args.txt_style/'test_files.txt'
     in_files = readlines(txt)
     #out
     if args.out_path !=None:
