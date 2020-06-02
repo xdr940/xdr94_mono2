@@ -537,14 +537,15 @@ class Trainer:
 
             var_mask = VarMask(erro_maps)
             mean_mask = MeanMask(erro_maps)
-            #mean_mask_p = rectify(mean_mask)
+           # poles,ind_mov = rectify(mean_mask)
             identity_selection = IdenticalMask(erro_maps)
 
             #identity_selection_new = (1-var_mask).float()*(idxs_0 < 2).float()    #
 
             #final_mask = (mean_mask *(1- identity_selection))
-            final_mask = float8or(var_mask ,1-identity_selection)*mean_mask
-
+            #final_mask = float8or(var_mask ,1-identity_selection)*ind_mov
+            #final_mask = float8or(final_mask,poles)
+            final_mask = float8or(float8or(1-mean_mask,1-identity_selection),var_mask)
 
             to_optimise = map_34 * final_mask
 
@@ -554,9 +555,10 @@ class Trainer:
 
 
             outputs["identity_selection/{}".format(scale)] = 1-identity_selection.float()
-
             outputs["mean_mask/{}".format(scale)] = mean_mask.float()
-            #outputs["mean_mask_p/{}".format(scale)] = mean_mask_p.float()
+
+          #  outputs["ind_mov/{}".format(scale)] = ind_mov.float()
+           # outputs["poles/{}".format(scale)] = poles.float()
 
 
             outputs["var_mask/{}".format(scale)] = var_mask.float()
@@ -600,8 +602,9 @@ class Trainer:
 
         # garg/eigen crop#????
         crop_mask = torch.zeros_like(mask)
-        crop_mask[:, :, 153:371, 44:1197] = 1
-        mask = mask * crop_mask
+        if self.opt.dataset =='kitti':
+            crop_mask[:, :, 153:371, 44:1197] = 1
+            mask = mask * crop_mask
 
         depth_gt = depth_gt[mask]
         depth_pred = depth_pred[mask]

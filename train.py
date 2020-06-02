@@ -7,7 +7,7 @@
 from __future__ import absolute_import, division, print_function
 
 from my_trainer import Trainer
-from options import MD_train_opts
+from options import MD_train_opts,MC_train_options
 
 options = MD_train_opts()
 opts = options.parse()

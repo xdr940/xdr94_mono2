@@ -15,52 +15,54 @@ file_dir = os.path.dirname(__file__)  # the directory that options.py resides in
 class MD_train_opts:
     def __init__(self):
         self.parser = argparse.ArgumentParser(description="Monodepthv2 training options")
-        self.parser.add_argument("--num_epochs", type=int, help="number of epochs", default=5)
-        self.parser.add_argument("--batch_size", type=int, help="batch size", default=4)  #
+        self.parser.add_argument("--num_epochs", type=int, help="number of epochs", default=20)
+        self.parser.add_argument("--batch_size", type=int, help="batch size", default=8)  #
         self.parser.add_argument("--weights_save_frequency",
                                  type=int,
                                  help="number of epochs between each save",
-                                 default=10)
+                                 default=5)
 
         self.parser.add_argument("--split",
                                  type=str,
                                  help="which training split to use",
                                  choices=["eigen_zhou",
                                           "custom", 'custom_small', "eigen_full", "odom", "benchmark",
-                                          "mc", "mc"],
-                                 #default="custom")
-                                 default="custom_small")
+                                          "mc", "mc_lite"],
+                                 #default="custom_small")
+                                 default="mc")
         self.parser.add_argument("--load_weights_folder",
                                  type=str,
+                                 #default='/home/roit/models/monodepth2/checkpoints/05-28-04:30/models/weights_19',
                                  #default="/home/roit/models/monodepth2/identical_var_mean/last_model",
                                  default='/home/roit/models/monodepth2_official/mono_640x192',
                                  # default='/media/roit/hard_disk_2/Models/monodepth2/04-23-00:50/models/weights_10',#继续训练
                                  #default='/home/roit/models/monodepth2/fullwitherodil/last_model',
                                  #default='/home/roit/models/monodepth2/reproduction/models/weights_19',
                                  #default='/home/roit/models/monodepth2/var_id/models/weights_19',
-                                 #default='/home/roit/models/monodepth2/05-20-17:20/models/weights_19',
+                                 #default='/home/roit/models/monodepth2/05-27-17:48/models/weights_9',
 
                                  help="name of model to load, if not set, train from imgnt pretrained")
         self.parser.add_argument("--data_path",
                                  type=str,
                                  help="path to the training data",
-                                 default='/home/roit/datasets/kitti/')
-                                 #default="/home/roit/datasets/MC")
+                                 #default='/home/roit/datasets/kitti/')
+                                 default="/home/roit/datasets/MC")
         self.parser.add_argument("--log_dir",
                                  type=str,
                                  help="log directory",
-                                 default='/home/roit/models/monodepth2/eval_test'
-                                 #default = '/home/roit/models/monodepth2/checkpoints'
+                                 #default='/home/roit/models/monodepth2/eval_test'
+                                 default = '/home/roit/models/monodepth2/checkpoints'
                                   )
 
 
         self.parser.add_argument("--masks",
                                  default=['identity_selection',
-                                          'identity_selection_new',
+                                          'ind_mov',
+                                          'poles',
                                           'final_selection',
                                           'var_mask',
                                           'mean_mask',
-                                          'mean_mask_p',
+                                          'ind_mov',
                                           'map_12',
                                           'map_34'
                                          ])
@@ -71,8 +73,8 @@ class MD_train_opts:
         self.parser.add_argument("--dataset",
                                  type=str,
                                  help="dataset to train on",
-                                 #default="mc",
-                                 default='kitti',
+                                 default="mc",
+                                 #default='kitti',
                                  choices=["kitti", "kitti_odom", "kitti_depth", "kitti_test", "mc"])
 
 
@@ -89,15 +91,19 @@ class MD_train_opts:
                                  help="if set, trains from raw KITTI png files (instead of jpgs)",
                                  default=True,
                                  action="store_true")
-        self.parser.add_argument("--height",type=int,help="input image height",default=192)
-        self.parser.add_argument("--width",type=int,help="input image width",default=640)
+        #self.parser.add_argument("--height",type=int,help="input image height",default=192)
+        self.parser.add_argument("--height",type=int,help="input image height",default=288)
+
+        #self.parser.add_argument("--width",type=int,help="input image width",default=640)
+        self.parser.add_argument("--width",type=int,help="input image width",default=384)
+
         self.parser.add_argument("--full_height",type=int,
-                                 default=375)
-                                 #default = 600)
+                                 #default=375)
+                                 default = 600)
 
         self.parser.add_argument("--full_width",type=int,
-                                 default=1242)
-                                 #default = 800)
+                                 #default=1242)
+                                 default = 800)
 
         self.parser.add_argument("--disparity_smoothness",type=float,help="disparity smoothness weight",default=0.1)
         #
@@ -107,7 +113,11 @@ class MD_train_opts:
         self.parser.add_argument("--scales",nargs="+",type=int,help="scales used in the loss",default=[0, 1, 2, 3])
 
         self.parser.add_argument("--min_depth",type=float,help="minimum depth",default=0.1)#这里度量就代表m
-        self.parser.add_argument("--max_depth",type=float,help="maximum depth",default=80.0)
+        self.parser.add_argument("--max_depth",type=float,help="maximum depth",
+                                 #default=80.0)
+                                 default = 255.0)
+
+
         #self.parser.add_argument("--use_stereo",help="if set, uses stereo pair for training",action="store_true")
         self.parser.add_argument("--frame_ids",nargs="+",type=int,help="frames to load",default=[0, -1, 1])
 
@@ -175,7 +185,9 @@ class MD_eval_opts:
         self.parser.add_argument("--data_path",
                                  type=str,
                                  help="path to the training data",
-                                 default='/home/roit/datasets/kitti/')
+                                 #default='/home/roit/datasets/kitti/')
+                                 default = '/home/roit/datasets/MC/')
+
         # default="/home/roit/datasets/MC")
         self.parser.add_argument("--depth_eval_path",
                                  help="",
@@ -190,18 +202,113 @@ class MD_eval_opts:
                                  #default="/home/roit/models/monodepth2/fullwitherodil10epoch/last_model",
                                  #default="/home/roit/models/monodepth2/05-14-13:57/models/weights_4"#
                                  #default="/home/roit/models/monodepth2/checkpoints/05-14-19:27/models/weights_19"#
-                                 #default="/home/roit/models/monodepth2/checkpoints/05-16-23:53/models/weights_9"
+                                 #default="/home/roit/models/monodepth2/05-27-17:48/models/weights_10"
                                  #default = "/home/roit/models/monodepth2/checkpoints/05-15-14:40/models/weights_19"
                                  # default = "/home/roit/models/monodepth2/checkpoints/05-15-14:40/models/weights_19"
                                  #default="/home/roit/models/monodepth2/checkpoints/05-18-00:34/models/weights_4"
                                  #default="/home/roit/models/monodepth2/checkpoints/05-20-00:06/models/weights_19"
-                                 default = "/home/roit/models/monodepth2/checkpoints/05-23-19:20/models/weights_14"
+                                 default = "/home/roit/models/monodepth2/checkpoints/06-02-06:59/models/weights_19"
 
         )
         self.parser.add_argument("--eval_split",
                                  type=str,
-                                 default="eigen",  # eigen
-                                 choices=["eigen_zhou","eigen", "eigen_benchmark", "benchmark", "odom_9", "odom_10", "custom", "mc"],
+                                 default="mc_lite",  # eigen
+                                 choices=["eigen_zhou","eigen", "eigen_benchmark", "benchmark", "odom_9", "odom_10", "custom", "mc","mc_lite"],
+                                 help="which split to run eval on")
+        self.parser.add_argument("--num_layers",
+                                 type=int,
+                                 help="number of resnet layers",
+                                 default=18,
+                                 choices=[18, 34, 50, 101, 152])
+
+        self.parser.add_argument("--eval_stereo",
+                                 help="if set evaluates in stereo mode",
+                                 action="store_true")
+        self.parser.add_argument("--eval_mono",
+                                 help="if set evaluates in mono mode",
+                                 default=True,
+                                 action="store_true")
+        self.parser.add_argument("--disable_median_scaling",
+                                 help="if set disables median scaling in evaluation",
+                                 action="store_true")
+        self.parser.add_argument("--pred_depth_scale_factor",
+                                 help="if set multiplies predictions by this number",
+                                 type=float,
+                                 default=1)
+
+
+        self.parser.add_argument("--save_pred_disps",
+                                 help="if set saves predicted disparities",
+                                 action="store_true")
+        self.parser.add_argument("--no_eval",
+                                 help="if set disables evaluation",
+                                 action="store_true")
+        self.parser.add_argument("--eval_eigen_to_benchmark",
+                                 help="if set assume we are loading eigen results from npy but "
+                                      "we want to evaluate using the new benchmark.",
+                                 action="store_true")
+        self.parser.add_argument("--eval_out_dir", default='eval_out_dir',
+                                 help="if set will output the disparities to this folder",
+                                 type=str)
+        self.parser.add_argument("--post_process",  # ??
+                                 help="if set will perform the flipping post processing "
+                                      "from the original monodepth paper",
+                                 action="store_true")
+
+
+        self.parser.add_argument("--eval_batch_size", default=16, type=int)
+
+
+        self.parser.add_argument("--min_depth",type=float,help="minimum depth",default=0.1)#这里度量就代表m
+        self.parser.add_argument("--max_depth",type=float,help="maximum depth",default=255.0)
+        self.parser.add_argument("--num_workers",
+                                 type=int,
+                                 help="number of dataloader workers",
+                                 default=12)
+
+    def parse(self):
+        self.options = self.parser.parse_args()
+        return self.options
+
+
+class MD_eval_pose_opts:
+    def __init__(self):
+        # EVALUATION options
+        self.parser = argparse.ArgumentParser(description="Monodepthv2 evaluation options")
+        self.parser.add_argument('--root', type=str,
+                                 default='/home/roit/aws/aprojects/xdr94_mono2')
+
+
+        # default="/home/roit/datasets/MC")
+        self.parser.add_argument("--load_weights_folder",
+                                 help="",
+                                 #default='/home/roit/models/monodepth2_official/mono_640x192',#官方给出的模型文件夹
+                                 #default="/home/roit/models/monodepth2/reproduction/models/weights_4",
+                                 #default="/home/roit/models/monodepth2/pure_var_mask_median/models/weights_19",
+                                 #default="/home/roit/models/monodepth2/avg_loss/models/weights_19",
+                                 #default="/home/roit/models/monodepth2/identicalmask/models/weights_4",
+                                 #default="/home/roit/models/monodepth2/identical+var/models/weights_7",
+                                 #default="/home/roit/models/monodepth2/identical_var_mean/last_model",
+                                 #default="/home/roit/models/monodepth2/fullwitherodil/last_model",
+                                 #default="/home/roit/models/monodepth2/fullwitherodil10epoch/last_model",
+                                 #default="/home/roit/models/monodepth2/05-14-13:57/models/weights_4"#
+                                 #default="/home/roit/models/monodepth2/checkpoints/05-14-19:27/models/weights_19"#
+                                 #default="/home/roit/models/monodepth2/05-27-17:48/models/weights_10"
+                                 #default = "/home/roit/models/monodepth2/checkpoints/05-15-14:40/models/weights_19"
+                                 # default = "/home/roit/models/monodepth2/checkpoints/05-15-14:40/models/weights_19"
+                                 #default="/home/roit/models/monodepth2/checkpoints/05-18-00:34/models/weights_4"
+                                 #default="/home/roit/models/monodepth2/checkpoints/05-20-00:06/models/weights_19"
+                                 #default = "/home/roit/models/monodepth2/checkpoints/reproduction/models/weights_19"
+                                 #default = "/home/roit/models/monodepth2/checkpoints/05-28-04:30/models/weights_19"
+                                 default="/home/roit/models/monodepth2_official/mono_640x192"
+
+                                 )
+        self.parser.add_argument("--height",default=192)
+        self.parser.add_argument("--width",default=640)
+        self.parser.add_argument("--eval_split",
+                                 type=str,
+                                 default="odom_9",  # eigen
+                                 choices=["odom_9","odom_10"],
                                  help="which split to run eval on")
         self.parser.add_argument("--num_layers",
                                  type=int,
@@ -245,10 +352,10 @@ class MD_eval_opts:
 
         self.parser.add_argument("--eval_pose_data_path",
                                  default='/media/roit/hard_disk_2/Datasets/kitti_odometry_color')
-
         self.parser.add_argument("--eval_pose_save_path", default="./")
         self.parser.add_argument("--eval_batch_size", default=16, type=int)
         self.parser.add_argument("--eval_odom_batch_size", default=16, type=int)
+
 
 
         self.parser.add_argument("--min_depth",type=float,help="minimum depth",default=0.1)#这里度量就代表m
@@ -263,7 +370,7 @@ class MD_eval_opts:
         return self.options
 
 
-class MCOptions:
+class MC_train_options:
 
     def __init__(self):
         self.parser = argparse.ArgumentParser(description="Monodepthv2 options")
@@ -279,8 +386,14 @@ class MCOptions:
 
         self.parser.add_argument("--batch_size",default=1)
         self.parser.add_argument("--num_workers",default=1)
+        self.parser.add_argument("--mc",
+                                 type=str,
+                                 help="dataset to train on",
+                                 # default="mc",
+                                 default='kitti',
+                                 choices=["kitti", "kitti_odom", "kitti_depth", "kitti_test", "mc"])
 
-        self.parser.add_argument("--splits",default='mc')
+        self.parser.add_argument("--splits",default='mc_lite')
 
     def parse(self):
         self.options = self.parser.parse_args()
@@ -291,19 +404,19 @@ class run_infer_from_txt:
         self.parser = argparse.ArgumentParser(description='Simple testing funtion for Monodepthv2 models.')
 
         self.parser.add_argument('--image_path', type=str,
-                            # default='/home/roit/datasets/MC',
-                            default='/home/roit/datasets/kitti',
+                             default='/home/roit/datasets/MC',
+                            #default='/home/roit/datasets/kitti',
                             help='path to a test image or folder of images')
         self.parser.add_argument("--txt_style",
-                            # default='mc',
-                            default='eigen',
+                             default='mc',
+                            #default='eigen',
                             choices=['custom', 'mc', 'visdrone', 'eigen', 'mc'])
-        self.parser.add_argument('--out_path', type=str, default='eigen_05231920_w19',
+        self.parser.add_argument('--out_path', type=str, default='mc_test',
                             help='path to a test image or folder of images')
         self.parser.add_argument('--npy_out', default=False)
         self.parser.add_argument('--model_name', type=str,
                             help='name of a pretrained model to use',
-                            default='weights_14',
+                            default='weights_19',
                             #default='mono_640x192',
                                  choices=[
                                 "last_model",
@@ -320,7 +433,7 @@ class run_infer_from_txt:
                                  #default='/home/roit/models/monodepth2_official',
                                  #default='/home/roit/models/monodepth2/fullwitherodil',
                                  #default='/home/roit/models/monodepth2/identical_var_mean',
-                                 default="/home/roit/models/monodepth2/checkpoints/05-23-19:20/models",
+                                 default='/home/roit/models/monodepth2/checkpoints/06-02-06:59/models',
         help='root path of models')
         self.parser.add_argument('--ext', type=str, help='image extension to search for in folder', default="*.jpg")
         self.parser.add_argument("--no_cuda", help='if set, disables CUDA', action='store_true')

@@ -1,17 +1,20 @@
-import torch
-#[3,3,3
-# 3,3,3]
-#[2
-# 2
-# 2]
-#
-#
-#
-def uint8or(t1,t2):
+import numpy as np
+import matplotlib.pyplot as plt
+pose = np.load('poses.npy')
+start = np.array([0,0,0,1]).reshape([4,1])
 
-    return ((t1 + t2) > 0).float()
+len,_,_ = pose.shape
 
-a = torch.ones([2,3])*3
-b = torch.ones([3])*2
+p =[]
+last_p = start
+for i in range(len):
+    last_p = pose[i,] @ last_p
 
-print(uint8or(a,b))
+    p.append(np.expand_dims(last_p,axis=0))
+p = np.concatenate(p,axis=0)
+p= np.squeeze(p,axis=2)
+
+plt.plot(p[:,0],p[:,1])
+plt.show()
+
+print('ok')

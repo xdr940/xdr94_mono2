@@ -94,8 +94,8 @@ def main(args):
             files.append(in_path/item[0]/camera/'data'/"{:010d}.png".format(int(item[1])))
     elif args.txt_style =='mc':
         for item in  in_files:
-            item = item.split(' ')
-            files.append(in_path/item[0]/'img'/item[1]+'.png')
+            #item = item.split('/')
+            files.append(in_path/(item +'.png'))
     elif args.txt_style =='visdrone':
         for item in in_files:
             item = item.split(' ')

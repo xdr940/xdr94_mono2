@@ -1,6 +1,6 @@
 
 import torch
-
+from .erodila import rectify
 def float8or(t1,t2):
 
     return ((t1 + t2) > 0).float()
@@ -32,6 +32,10 @@ def MeanMask(erro_maps):
     rhosmean_flat = rhosmean.flatten(start_dim=1)  # b,h*w
     delta_mean = rhosmean_flat.mean(dim=1).unsqueeze(dim=1)  # b,1
     mean_mask = (rhosmean_flat < 2 * delta_mean).reshape_as(rhosmean)
+
+    #mean rectify
+    #mean_mask = rectify(mean_mask)
+
     return mean_mask.float()
 def IdenticalMask(erro_maps):
     #identity_selection = (idxs_0 >= 2).float()  #

@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 
 from layers import disp_to_depth
 from utils.official import readlines
-from options import MCOptions
+from options import MD_eval_opts
 import datasets
 import networks
 from tqdm import  tqdm
@@ -61,7 +61,7 @@ def evaluate(opt):
     """Evaluates a pretrained model using a specified test set
     """
     MIN_DEPTH = 1e-3
-    MAX_DEPTH = 1.
+    MAX_DEPTH = 255.
     #这里的度量信息是强行将gt里的值都压缩到和scanner一样的量程， 这样会让值尽量接近度量值
     #但是对于
 
@@ -87,7 +87,7 @@ def evaluate(opt):
 
 
     #model loading
-    filenames = readlines(splits_dir/opt.eval_split/ "test_files2.txt")
+    filenames = readlines(splits_dir/opt.eval_split/ "test_files.txt")
     encoder_path = depth_eval_path/"encoder.pth"
     decoder_path = depth_eval_path/ "depth.pth"
 
@@ -151,7 +151,7 @@ def evaluate(opt):
 
 
     #3. evaluation
-    print("-> Evaluating")
+    print("\n-> Evaluating")
 
     if opt.eval_stereo:
         print("   Stereo evaluation - "
@@ -175,12 +175,12 @@ def evaluate(opt):
         pred_depth = 1 / pred_disp# 也可以根据上面直接得到
 
         #crop
-        mask = gt_depth > 0
+        mask = gt_depth >0
 
         pred_depth = pred_depth[mask]#并reshape成1d
         gt_depth = gt_depth[mask]
 
-        pred_depth *= opt.pred_depth_scale_factor
+        pred_depth *= 255#opt.pred_depth_scale_factor
 
         #median scaling
         if not opt.disable_median_scaling:
@@ -224,5 +224,5 @@ sq_rel and rmse度量的时候需要进行量级统一
 
 
 if __name__ == "__main__":
-    options = MCOptions()
+    options = MD_eval_opts()
     evaluate(options.parse())

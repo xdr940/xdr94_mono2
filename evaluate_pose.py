@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 
 from layers import transformation_from_parameters
 from utils.official import readlines
-from options import MonodepthOptions
+from options import MD_eval_pose_opts
 from datasets import KITTIOdomDataset
 import networks
 from tqdm import tqdm
@@ -87,6 +87,7 @@ def evaluate(opt):
 
     opt.frame_ids = [0, 1]  # pose network only takes two frames as input
 
+    print("-> eval "+opt.eval_split)
     for inputs in tqdm(dataloader):
         for key, ipt in inputs.items():
             inputs[key] = ipt.cuda()
@@ -135,5 +136,5 @@ def evaluate(opt):
 
 
 if __name__ == "__main__":
-    options = MonodepthOptions()
+    options = MD_eval_pose_opts()
     evaluate(options.parse())

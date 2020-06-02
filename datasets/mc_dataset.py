@@ -9,7 +9,7 @@ import PIL.Image as pil
 from path import Path
 import matplotlib.pyplot as plt
 from .mono_dataset import MonoDataset
-
+import cv2
 
 class MCDataset_old(MonoDataset):
     def __init__(self,*args,**kwargs):
@@ -132,11 +132,12 @@ class MCDataset(MonoDataset):
 
     def check_depth(self):
 
-        line = self.filenames[0].split()
+        line = self.filenames[0].split('/')
         scene_name = line[0]
-        frame_index = int(line[1])
+        trajectory_name = line[1]
+        frame_index = int(line[3])
 
-        depth_filename =Path(self.data_path)/scene_name/"depth"/"{:04d}.png".format(int(frame_index))
+        depth_filename =Path(self.data_path)/scene_name/trajectory_name/"depth"/"{:04d}.png".format(int(frame_index))
 
         return depth_filename.exists()
 
@@ -151,15 +152,26 @@ class MCDataset(MonoDataset):
 
 
     def __get_image_path__(self, folder, frame_index):
+        #folder = '0003/p1/color/0124'
+        #frame_idx = '-1'
+        frame = folder.split('/')
+        frame_index = int(frame[-1])+frame_index
         f_str = "{:04d}{}".format(frame_index, self.img_ext)
-        image_path = Path(self.data_path)/ folder/"color/{}".format(f_str)
+        image_path = Path(self.data_path)/ frame[0]/frame[1]/"color"/"{}".format(f_str)
         return image_path
 
 
 
     def get_depth(self, folder, frame_index, side, do_flip):
         path = self.__get_depth_path__(folder, frame_index)
-        depth_gt = plt.imread(path)
+        #rectify here
+        depth_gt = cv2.imread(path)[:,:,0]
+
+        #depth_gt = 0.313*depth_gt + 0.001*depth_gt**2 + 1.3
+        #depth_gt = cv2.cvtColor(depth_gt,cv2.COLOR_RGB2GRAY)
+
+
+
         depth_gt = skimage.transform.resize(depth_gt, self.full_res_shape[::-1], order=0, preserve_range=True, mode='constant')
 
         if do_flip:
@@ -167,6 +179,8 @@ class MCDataset(MonoDataset):
         return depth_gt#[0~1]
 
     def __get_depth_path__(self, folder, frame_index):
+        frame = folder.split('/')
+        frame_index = int(frame[-1]) + frame_index
         f_str = "{:04d}{}".format(frame_index, self.img_ext)
-        depth_path = Path(self.data_path) / folder / "depth/{}".format(f_str)
-        return depth_path
+        image_path = Path(self.data_path) / frame[0] / frame[1] / "depth" / "{}".format(f_str)
+        return image_path

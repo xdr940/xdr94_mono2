@@ -16,7 +16,7 @@ parser = argparse.ArgumentParser(description='export_gt_depth')
 parser.add_argument('--split',
                     type=str,
                     help='which split to export gt from',
-                    default='mc',
+                    default='mc_lite',
                     choices=["mc", "custom", "mc_lite"])
 
 parser.add_argument('--data_path',
@@ -31,7 +31,7 @@ def export_gt_depths_mc(opt):
 
 
     split_folder = Path('.') / "splits" / opt.split
-    lines = readlines(split_folder / "test_files2.txt")
+    lines = readlines(split_folder / "test_files.txt")
 
     print("Exporting ground truth depths for {}".format(opt.split))
 
@@ -48,7 +48,7 @@ def export_gt_depths_mc(opt):
 
         if opt.split == "mc" or "mc_lite":  # 后来补充的， ground-truth 在 ‘depth_annotated_path’,结果偏高
             gt_depth_path = data_path / block / trajectory/"depth" / "{:04d}.png".format(frame_id)
-            gt_depth = np.array(pil.open(gt_depth_path)).astype(np.float32)# / 255
+            gt_depth = np.array(pil.open(gt_depth_path)).astype(np.float32)[:,:,0]# / 255
 
             gt_depths.append(gt_depth.astype(np.float32))
         else:

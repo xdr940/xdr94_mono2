@@ -24,7 +24,7 @@ def parse_args():
     parser.add_argument("--txt_style",default='mc',choices=['mc','visdrone'])
     parser.add_argument('--out_path', type=str,default=None,help='path to a test image or folder of images')
     parser.add_argument("--num",default=6000,type=str)
-    parser.add_argument("--proportion",default=[0.7,0.2,0.1],help="train, val, test")
+    parser.add_argument("--proportion",default=[0.9,0.08,0.02],help="train, val, test")
     parser.add_argument("--out_name",default=None)
 
     return parser.parse_args()
@@ -60,11 +60,11 @@ def generate_mc(args):
 
     dataset_path = Path(args.dataset_path)
 
-    out_dir = Path("mc")
+    out_dir = Path("./mc")
     out_dir.mkdir_p()
     train_txt_p = out_dir/'train_files.txt'
     val_txt_p = out_dir/'val_files.txt'
-    test_txt_p = out_dir/'test_files2.txt'
+    test_txt_p = out_dir/'test_files.txt'
 
     dirs_o1 = dataset_path
     blocks = dirs_o1.dirs()
