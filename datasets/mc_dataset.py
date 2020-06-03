@@ -165,7 +165,7 @@ class MCDataset(MonoDataset):
     def get_depth(self, folder, frame_index, side, do_flip):
         path = self.__get_depth_path__(folder, frame_index)
         #rectify here
-        depth_gt = cv2.imread(path)[:,:,0]
+        depth_gt = cv2.imread(path)[:,:,0]/255 *800
 
         #depth_gt = 0.313*depth_gt + 0.001*depth_gt**2 + 1.3
         #depth_gt = cv2.cvtColor(depth_gt,cv2.COLOR_RGB2GRAY)

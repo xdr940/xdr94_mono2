@@ -22,7 +22,7 @@ cv2.setNumThreads(0)  # This speeds up evaluation 5x on our unix systems (OpenCV
 # Models which were trained with stereo supervision were trained with a nominal
 # baseline of 0.1 units. The KITTI rig has a baseline of 54cm. Therefore,
 # to convert our stereo predictions to real-world scale we multiply our depths by 5.4.
-STEREO_SCALE_FACTOR = 5.4
+SCALE_FACTOR = 800.
 
 
 def compute_errors(gt, pred):
@@ -61,7 +61,7 @@ def evaluate(opt):
     """Evaluates a pretrained model using a specified test set
     """
     MIN_DEPTH = 1e-3
-    MAX_DEPTH = 255.
+    MAX_DEPTH = 800.
     #这里的度量信息是强行将gt里的值都压缩到和scanner一样的量程， 这样会让值尽量接近度量值
     #但是对于
 
@@ -151,15 +151,13 @@ def evaluate(opt):
 
 
     #3. evaluation
+    #gt_depths [nums,600,800]
+    #pred_disps [nums,288,384]
     print("\n-> Evaluating")
 
-    if opt.eval_stereo:
-        print("   Stereo evaluation - "
-              "disabling median scaling, scaling by {}".format(STEREO_SCALE_FACTOR))
-        opt.disable_median_scaling = True
-        opt.pred_depth_scale_factor = STEREO_SCALE_FACTOR
-    else:
-        print("   Mono evaluation - using median scaling")
+
+    opt.pred_depth_scale_factor = SCALE_FACTOR
+    print("   Mono evaluation - using median scaling")
 
     errors = []
     ratios = []
@@ -171,7 +169,7 @@ def evaluate(opt):
         gt_height, gt_width = gt_depth.shape[:2]
 
         pred_disp = pred_disps[i]
-        pred_disp = cv2.resize(pred_disp, (gt_width, gt_height))#1271x341 t0 128x640
+        pred_disp = cv2.resize(pred_disp, (gt_width, gt_height))#1271x341 t0 192x640
         pred_depth = 1 / pred_disp# 也可以根据上面直接得到
 
         #crop
@@ -180,7 +178,7 @@ def evaluate(opt):
         pred_depth = pred_depth[mask]#并reshape成1d
         gt_depth = gt_depth[mask]
 
-        pred_depth *= 255#opt.pred_depth_scale_factor
+        pred_depth *= opt.pred_depth_scale_factor
 
         #median scaling
         if not opt.disable_median_scaling:
@@ -204,6 +202,9 @@ def evaluate(opt):
 
 sq_rel and rmse度量的时候需要进行量级统一
     
+*800.
+abs_rel |   sq_rel |     rmse | rmse_log |       a1 |       a2 |       a3 | 
+&   0.208  &   17.591  &  57.653  &   0.402  &   0.622  &   0.802  &   0.881  \\
 
     
     '''

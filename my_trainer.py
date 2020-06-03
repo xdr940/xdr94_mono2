@@ -545,9 +545,9 @@ class Trainer:
             #final_mask = (mean_mask *(1- identity_selection))
             #final_mask = float8or(var_mask ,1-identity_selection)*ind_mov
             #final_mask = float8or(final_mask,poles)
-            final_mask = float8or(float8or(1-mean_mask,1-identity_selection),var_mask)
+            #final_mask = float8or(float8or(1-mean_mask,1-identity_selection),var_mask)
 
-            to_optimise = map_34 * final_mask
+            to_optimise = map_34 * (1-identity_selection)
 
 
             #outputs["map_12/{}".format(scale)] = map_12.float()
@@ -555,15 +555,15 @@ class Trainer:
 
 
             outputs["identity_selection/{}".format(scale)] = 1-identity_selection.float()
-            outputs["mean_mask/{}".format(scale)] = mean_mask.float()
+            #outputs["mean_mask/{}".format(scale)] = mean_mask.float()
 
           #  outputs["ind_mov/{}".format(scale)] = ind_mov.float()
            # outputs["poles/{}".format(scale)] = poles.float()
 
 
-            outputs["var_mask/{}".format(scale)] = var_mask.float()
+            #outputs["var_mask/{}".format(scale)] = var_mask.float()
 
-            outputs["final_selection/{}".format(scale)] = final_mask.float()
+            #outputs["final_selection/{}".format(scale)] = final_mask.float()
 
 # ----------------------------------------
 

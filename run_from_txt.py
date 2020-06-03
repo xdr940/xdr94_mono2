@@ -28,7 +28,7 @@ from options import run_infer_from_txt
 def main(args):
     """Function to predict for a single image or folder of images
     """
-    print(args.image_path)
+    print(args.dataset_path)
     if torch.cuda.is_available() and not args.no_cuda:
         device = torch.device("cuda")
     else:
@@ -73,7 +73,7 @@ def main(args):
 
 #2. FINDING INPUT IMAGES
 
-    in_path = Path(args.image_path)
+    dataset_path = Path(args.dataset_path)
 
     #files
     root = Path(os.path.dirname(__file__))
@@ -83,7 +83,7 @@ def main(args):
     if args.out_path !=None:
         out_path  =Path(args.out_path)
     else:
-        out_path = Path('./'+in_path.stem+'_out')
+        out_path = Path('./'+dataset_path.stem+'_out')
     out_path.mkdir_p()
     files=[]
     if args.txt_style =='custom' or args.txt_style =='eigen':#kitti
@@ -91,26 +91,31 @@ def main(args):
             item = item.split(' ')
             if item[2]=='l':camera ='image_02'
             elif item[2]=='r': camera= 'image_01'
-            files.append(in_path/item[0]/camera/'data'/"{:010d}.png".format(int(item[1])))
+            files.append(dataset_path/item[0]/camera/'data'/"{:010d}.png".format(int(item[1])))
     elif args.txt_style =='mc':
         for item in  in_files:
             #item = item.split('/')
-            files.append(in_path/(item +'.png'))
+            files.append(item)
     elif args.txt_style =='visdrone':
         for item in in_files:
             item = item.split(' ')
-            files.append(in_path / 'sequences' / item[0] / item[1]+'.jpg')
+            files.append(dataset_path / 'sequences' / item[0] / item[1]+'.jpg')
 #2.1
 
     cnt=0
 #3. PREDICTING ON EACH IMAGE IN TURN
-    print('\n-> inference '+args.image_path)
+    print('\n-> inference '+args.dataset_path)
     for  image_path in tqdm(files):
 
 
 
         # Load image and preprocess
-        input_image = pil.open(image_path).convert('RGB')
+
+        if args.txt_style =='mc':
+            input_image = pil.open(dataset_path/image_path+'.png').convert('RGB')
+        else:
+            input_image = pil.open(image_path).convert('RGB')
+
         original_width, original_height = input_image.size
         input_image = input_image.resize((feed_width, feed_height), pil.LANCZOS)
         input_image = transforms.ToTensor()(input_image).unsqueeze(0)
@@ -128,8 +133,10 @@ def main(args):
         #if args.out_name=='num':
         if args.txt_style=='eigen' or args.txt_style=='custom':
             output_name = str(image_path).split('/')[-4]+'_{}'.format(image_path.stem)
-        else:
-            output_name = str(image_path).split('/')[-3]+'_{}'.format(image_path.stem)
+        if args.txt_style =='mc':
+            block,p,color,frame =image_path.split('/')
+            output_name = str(image_path).replace('/','_')+'.png'
+
 
 
         if args.npy_out:
