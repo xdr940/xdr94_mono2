@@ -31,10 +31,13 @@ class VSDataset(MonoDataset):
         #                   [0, 0, 0, 1]], dtype=np.float32)
 
 
-        # 1904 * k[0] = 1371-> k0 = 0.720
-        # 1071 * k[1 ]= 1371 -> k1 = 1.28
-        self.K = np.array([[0.720, 0, 0.5, 0],
-                           [0, 1.28, 0.5, 0],
+
+        #952/fx = tan 35 =0.7-> fx = 1360
+
+        # 1904 * k[0] = 1360-> k0 = 0.714
+        # 1071 * k[1 ]= 1360 -> k1 = 1.28
+        self.K = np.array([[0.714, 0, 0.5, 0],
+                           [0, 1.27, 0.5, 0],
                            [0, 0, 1, 0],
                            [0, 0, 0, 1]], dtype=np.float32)
 
@@ -42,7 +45,7 @@ class VSDataset(MonoDataset):
         self.img_ext='.jpg'
         #self.depth_ext = '.png'
 
-        self.MaxDis = 500.
+        self.MaxDis = 255.
         self.MinDis = 0
 
 

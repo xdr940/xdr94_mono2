@@ -56,5 +56,26 @@ def kitti():
 
     print('ok')
 
+def extract_vsd_img():
+    dataset = Path("/home/roit/datasets/VisDrone2")
+    wk_root = Path('/home/roit/aws/aprojects/xdr94_mono2')
+    root = wk_root / 'splits/visdrone_lite/test_files.txt'
+    img_dump = wk_root / 'visdrone_lite_test_img'
+    img_dump.mkdir_p()
+
+
+    rel_paths = readlines(root)
+    rel_paths.sort()
+    for item in tqdm(rel_paths):
+        seq,frame = item.split('/')
+        img_p = dataset / seq / frame + '.jpg'
+        out_name = item.replace('/', '_') + '.jpg'
+        cmd = 'cp ' + img_p + '  ' + img_dump / out_name
+        os.system(cmd)
+
+
+
+    pass
+
 if __name__ == '__main__':
-    MC()
+    extract_vsd_img()

@@ -51,12 +51,12 @@ def IdenticalMask(erro_maps):
     identity_selection = (map_12 < map_34).float()
 
     #rectiry
-    #is_over_big = identity_selection.sum(dim=1).sum(dim=1) > (0.7 * 192 * 640)#b
-    #is_normal = 1-is_over_big
+    is_over_big = identity_selection.sum(dim=1).sum(dim=1) > (0.7 * 192 * 640)#b
+    is_normal = 1-is_over_big
         # b#如果identical 部分(1, 白色)大于 70%， 说明摄像机静止， 此时取反或者全黑(mask缩小至0)
-    #need2 = torch.ones_like(identity_selection).transpose(0, 2).cuda()  # bhw -> hwb
-    #need = is_normal.float()*need2# b*hwb = hwb
-    #need = need.transpose(0, 2)  # hwb->bhw
-    #identity_selection = need * identity_selection
+    need2 = torch.ones_like(identity_selection).transpose(0, 2).cuda()  # bhw -> hwb
+    need = is_normal.float()*need2# b*hwb = hwb
+    need = need.transpose(0, 2)  # hwb->bhw
+    identity_selection = need * identity_selection
 
     return  identity_selection

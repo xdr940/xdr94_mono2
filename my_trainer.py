@@ -26,8 +26,7 @@ from layers import *
 
 from datasets import KITTIRAWDataset
 from datasets import KITTIOdomDataset
-from datasets import KITTIDepthDataset
-from datasets import MCDataset
+from datasets import MCDataset,VSDataset
 import networks
 from utils.logger import TermLogger,AverageMeter
 from utils.erodila import rectify
@@ -124,7 +123,8 @@ class Trainer:
         # datasets setting
         datasets_dict = {"kitti": KITTIRAWDataset,
                          "kitti_odom": KITTIOdomDataset,
-                         "mc":MCDataset}
+                         "mc":MCDataset,
+                         "visdrone":VSDataset}
         self.dataset = datasets_dict[self.opt.dataset]#选择建立哪个类，这里kitti，返回构造函数句柄
 
         fpath = os.path.join(os.path.dirname(__file__), "splits", self.opt.split, "{}_files.txt")
@@ -406,7 +406,6 @@ class Trainer:
         """
         abs_diff = torch.abs(target - pred)
         l1_loss = abs_diff.mean(1, True)#[b,1,h,w]
-
 
         ssim_loss = self.ssim(pred, target).mean(1, True)
         reprojection_loss = 0.85 * ssim_loss + 0.15 * l1_loss

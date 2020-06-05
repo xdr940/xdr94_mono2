@@ -78,7 +78,7 @@ def main(args):
     #files
     root = Path(os.path.dirname(__file__))
     txt = root/'splits'/args.txt_style/'test_files.txt'
-    in_files = readlines(txt)
+    rel_paths = readlines(txt)
     #out
     if args.out_path !=None:
         out_path  =Path(args.out_path)
@@ -86,25 +86,27 @@ def main(args):
         out_path = Path('./'+dataset_path.stem+'_out')
     out_path.mkdir_p()
     files=[]
+
     if args.txt_style =='custom' or args.txt_style =='eigen':#kitti
-        for item in  in_files:
+        for item in  rel_paths:
             item = item.split(' ')
             if item[2]=='l':camera ='image_02'
             elif item[2]=='r': camera= 'image_01'
             files.append(dataset_path/item[0]/camera/'data'/"{:010d}.png".format(int(item[1])))
     elif args.txt_style =='mc':
-        for item in  in_files:
+        for item in  rel_paths:
             #item = item.split('/')
             files.append(item)
-    elif args.txt_style =='visdrone':
-        for item in in_files:
-            item = item.split(' ')
-            files.append(dataset_path / 'sequences' / item[0] / item[1]+'.jpg')
+    elif args.txt_style =='visdrone'or 'visdrone_lite':
+        for item in rel_paths:
+            item = item.split('/')
+            files.append(dataset_path / item[0] / item[1]+'.jpg')
 #2.1
 
     cnt=0
 #3. PREDICTING ON EACH IMAGE IN TURN
     print('\n-> inference '+args.dataset_path)
+    files.sort()
     for  image_path in tqdm(files):
 
 
@@ -133,10 +135,12 @@ def main(args):
         #if args.out_name=='num':
         if args.txt_style=='eigen' or args.txt_style=='custom':
             output_name = str(image_path).split('/')[-4]+'_{}'.format(image_path.stem)
-        if args.txt_style =='mc':
+        elif args.txt_style =='mc':
             block,p,color,frame =image_path.split('/')
             output_name = str(image_path).replace('/','_')+'.png'
-
+        elif args.txt_style=='visdrone' or args.txt_style=='visdrone_lite':
+            output_name = image_path.relpath(dataset_path).strip('.jpg').replace('/','_')
+            pass
 
 
         if args.npy_out:
