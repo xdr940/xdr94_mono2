@@ -4,7 +4,8 @@ import re
 from utils.official import readlines
 import os
 from tqdm import  tqdm
-
+import numpy as np
+import matplotlib.pyplot as plt
 def MC():
     cp_img=False
     cp_gt =True
@@ -59,8 +60,8 @@ def kitti():
 def extract_vsd_img():
     dataset = Path("/home/roit/datasets/VisDrone2")
     wk_root = Path('/home/roit/aws/aprojects/xdr94_mono2')
-    root = wk_root / 'splits/visdrone_lite/test_files.txt'
-    img_dump = wk_root / 'visdrone_lite_test_img'
+    root = wk_root / 'splits/visdrone/test_files.txt'
+    img_dump = wk_root / 'visdrone_test_img'
     img_dump.mkdir_p()
 
 
@@ -77,5 +78,13 @@ def extract_vsd_img():
 
     pass
 
+
+def extract_kitti_gt():
+    path = Path("./splits/eigen/gt_depths.npz")
+    gt = np.load(path, allow_pickle=True)
+    print(path.exists())
+
+
 if __name__ == '__main__':
-    extract_vsd_img()
+    #extract_vsd_img()
+    extract_kitti_gt()

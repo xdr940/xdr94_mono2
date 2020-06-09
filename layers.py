@@ -13,6 +13,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
+
+
 def disp_to_depth(disp, min_depth, max_depth):
     """Convert network's sigmoid output into depth prediction
     The formula for this conversion is given in the 'additional considerations'
@@ -272,3 +274,21 @@ def compute_depth_errors(gt, pred):
     sq_rel = torch.mean((gt - pred) ** 2 / gt)
 
     return abs_rel, sq_rel, rmse, rmse_log, a1, a2, a3
+
+
+class PhotometricError():
+
+    def __init__(self):
+        self.ssim = SSIM()
+    def run(self,pred, target):
+
+        """Computes reprojection loss between a batch of predicted and target images
+        与trainner中用的完全一样, 为了防止歧义,去此名字
+        """
+        abs_diff = torch.abs(target - pred)
+        l1_loss = abs_diff.mean(1, True)#[b,1,h,w]
+
+        ssim_loss = self.ssim(pred, target).mean(1, True)
+        reprojection_loss = 0.85 * ssim_loss + 0.15 * l1_loss
+
+        return reprojection_loss#[b,1,h,w]

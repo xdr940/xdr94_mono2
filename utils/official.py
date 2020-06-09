@@ -9,7 +9,7 @@ import os
 import hashlib
 import zipfile
 from six.moves import urllib
-
+import torch
 
 def readlines(filename):
     """Read all the lines in a text file and return as a list
@@ -112,3 +112,17 @@ def download_model_if_doesnt_exist(model_path,model_name):
             f.extractall(model_path)
 
         print("   Model unzipped to {}".format(model_path))
+
+
+#--------
+
+def adjacent_frame_path(target_path,frame_ids):
+    frame_str = target_path.stem
+    frame_num_int = int(frame_str)
+    #kitti format
+    frame_minus_str ="{:010d}".format(frame_num_int + frame_ids[0])
+    frame_plus_str = "{:010d}".format(frame_num_int + frame_ids[-1])
+    frame_minus_p = target_path.parent/frame_minus_str+'.png'
+    frame_plus_p = target_path.parent/frame_plus_str+'.png'
+
+    return frame_minus_p,frame_plus_p

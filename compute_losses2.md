@@ -322,3 +322,33 @@ rectify
 
 
 ```
+
+06082118
+```python
+ # id
+            map_34, idxs_1 = torch.min(reprojection_loss, dim=1)
+
+
+            var_mask = VarMask(erro_maps)
+            mean_mask = MeanMask(erro_maps)
+            identity_selection = IdenticalMask(erro_maps)
+
+            final_mask = float8or(var_mask ,((1-identity_selection)*mean_mask))
+
+            to_optimise = map_34 *final_mask
+
+
+
+
+            outputs["identity_selection/{}".format(scale)] = 1-identity_selection.float()
+            outputs["mean_mask/{}".format(scale)] = mean_mask.float()
+
+
+
+            outputs["var_mask/{}".format(scale)] = var_mask.float()
+
+            outputs["final_selection/{}".format(scale)] = final_mask.float()
+
+# ----------------------------------------
+
+```

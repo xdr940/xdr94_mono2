@@ -127,10 +127,12 @@ class Trainer:
                          "visdrone":VSDataset}
         self.dataset = datasets_dict[self.opt.dataset]#选择建立哪个类，这里kitti，返回构造函数句柄
 
-        fpath = os.path.join(os.path.dirname(__file__), "splits", self.opt.split, "{}_files.txt")
+        train_path = Path(self.opt.root)/"splits"/self.opt.split/"train_files.txt"
+        val_path = Path(self.opt.root)/"splits"/self.opt.split/"val_files.txt"
 
-        train_filenames = readlines(fpath.format("train"))
-        val_filenames = readlines(fpath.format("val"))
+
+        train_filenames = readlines(train_path)
+        val_filenames = readlines(val_path)
         img_ext = '.png' if self.opt.png else '.jpg'
 
         num_train_samples = len(train_filenames)
@@ -325,13 +327,13 @@ class Trainer:
             pose_inputs = [self.models["pose_encoder"](torch.cat(pose_inputs, 1))]
 
             #decoder
-            axisangle, translation = self.models["pose"](pose_inputs)
+            axisangle, translation = self.models["pose"](pose_inputs)#b213,b213
             outputs[("axisangle", 0, f_i)] = axisangle
             outputs[("translation", 0, f_i)] = translation
 
             # Invert the matrix if the frame id is negative
             outputs[("cam_T_cam", 0, f_i)] = transformation_from_parameters(
-                axisangle[:, 0], translation[:, 0], invert=(f_i < 0))
+                axisangle[:, 0], translation[:, 0], invert=(f_i < 0))#b44
 
 
         return outputs
@@ -493,7 +495,6 @@ class Trainer:
 
         for scale in self.opt.scales:
             loss = 0
-            reprojection_losses = []
 
             source_scale = 0
 
@@ -501,12 +502,15 @@ class Trainer:
             color = inputs[("color", 0, scale)]
             target = inputs[("color", 0, source_scale)]
 
+            #reprojection_losses
+            reprojection_losses = []
             for frame_id in self.opt.frame_ids[1:]:
                 pred = outputs[("color", frame_id, scale)]
                 reprojection_losses.append(self.compute_reprojection_loss(pred, target))
 
             reprojection_losses = torch.cat(reprojection_losses, 1)
 
+            #identity_reprojection_losses
             identity_reprojection_losses = []
             for frame_id in self.opt.frame_ids[1:]:
                 pred = inputs[("color", frame_id, source_scale)]
@@ -515,6 +519,8 @@ class Trainer:
 
             identity_reprojection_losses = torch.cat(identity_reprojection_losses, 1)
 
+
+            #
             identity_reprojection_loss = identity_reprojection_losses
 
             reprojection_loss = reprojection_losses
@@ -542,11 +548,12 @@ class Trainer:
             #identity_selection_new = (1-var_mask).float()*(idxs_0 < 2).float()    #
 
             #final_mask = (mean_mask *(1- identity_selection))
-            #final_mask = float8or(var_mask ,1-identity_selection)*ind_mov
+            final_mask = float8or(var_mask ,((1-identity_selection)*mean_mask))
             #final_mask = float8or(final_mask,poles)
             #final_mask = float8or(float8or(1-mean_mask,1-identity_selection),var_mask)
 
-            to_optimise = map_34 * (1-identity_selection)
+            #to_optimise = map_34 * (1-identity_selection)
+            to_optimise = map_34 *final_mask
 
 
             #outputs["map_12/{}".format(scale)] = map_12.float()
@@ -554,15 +561,15 @@ class Trainer:
 
 
             outputs["identity_selection/{}".format(scale)] = 1-identity_selection.float()
-            #outputs["mean_mask/{}".format(scale)] = mean_mask.float()
+            outputs["mean_mask/{}".format(scale)] = mean_mask.float()
 
           #  outputs["ind_mov/{}".format(scale)] = ind_mov.float()
            # outputs["poles/{}".format(scale)] = poles.float()
 
 
-            #outputs["var_mask/{}".format(scale)] = var_mask.float()
+            outputs["var_mask/{}".format(scale)] = var_mask.float()
 
-            #outputs["final_selection/{}".format(scale)] = final_mask.float()
+            outputs["final_selection/{}".format(scale)] = final_mask.float()
 
 # ----------------------------------------
 
