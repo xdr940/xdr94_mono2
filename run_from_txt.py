@@ -24,6 +24,8 @@ from layers import disp_to_depth,PhotometricError,transformation_from_parameters
 from utils.masks import VarMask,MeanMask,IdenticalMask
 
 from datasets.kitti_dataset import KITTIRAWDataset
+from datasets.visdrone_dataset import VSDataset
+from datasets.mc_dataset import MCDataset
 from torch.utils.data import DataLoader
 import torch.nn.functional as F
 from options import run_infer_from_txt
@@ -173,14 +175,18 @@ def main_with_masks(args):
         device = torch.device("cpu")
 
 
-    wk_path = Path(args.out_path)
+    out_path = Path(args.out_path)
+    out_path.mkdir_p()
     dirs ={}
-    for mask in args.masks:
-        dirs[mask] = (wk_path/mask)
-        (wk_path/mask).mkdir_p()
+    for mask in args.results:
+        dirs[mask] = (out_path/mask)
+        (out_path/mask).mkdir_p()
+
+    print('-> split:{}'.format(args.split))
+    print('-> save to {}'.format(args.out_path))
 
 
-    if args.txt_style == "custom" or args.txt_style =='eigen':
+    if args.split in['custom','custom_lite','eigen']:
         feed_height = 192
         feed_width = 640
         min_depth=0.1
@@ -188,7 +194,20 @@ def main_with_masks(args):
         full_height=375
         full_width=1242
         dataset = KITTIRAWDataset
-        img_ext = '.png'
+
+    elif args.split in["visdrone","visdrone_lite"]:
+        feed_width=352
+        feed_height=192
+        min_depth=0.1
+        max_depth=255
+        dataset = VSDataset
+    elif args.split in['mc','mc_lite']:
+        feed_height=288
+        feed_width=384
+        min_depth=0.1
+        max_depth=255
+        dataset=MCDataset
+
 
 
 
@@ -203,6 +222,42 @@ def main_with_masks(args):
     #data
     test_path = Path(args.wk_root) / "splits" / args.split / "test_files.txt"
     test_filenames = readlines(test_path)
+
+    #check filenames:
+    i=0
+    for i,item in enumerate(test_filenames):
+        #item = test_filenames[i]
+        if args.split in ['eigen','custom','custom_lite']:
+            dirname,frame,lr = test_filenames[i].split()
+            files =  (Path(args.dataset_path)/dirname/'image_02/data').files()
+            files.sort()
+            min =int(files[0].stem)
+            max = int(files[-1].stem)
+            if int(frame)+args.frame_ids[0]<=min or int(frame)+args.frame_ids[-1]>=max:
+                test_filenames[i]=''
+        if args.split in ['mc','mc_lite']:#虽然在split的时候已经处理过了
+            block,trajactory,color,frame = test_filenames[i].split('/')
+            files = (Path(args.dataset_path) / block/trajactory/color).files()
+            files.sort()
+            min = int(files[0].stem)
+            max = int(files[-1].stem)
+            if int(frame) + args.frame_ids[0] <= min or int(frame) + args.frame_ids[-1] >= max:
+                test_filenames[i] = ''
+            pass
+        if args.split in ['visdrone','visdrone_lite']:#虽然在split的时候已经处理过了
+            dirname,frame = test_filenames[i].split('/')
+            files =  (Path(args.dataset_path)/dirname).files()
+            files.sort()
+            min = int(files[0].stem)
+            max = int(files[-1].stem)
+            if int(frame) + args.frame_ids[0] <= min or int(frame) + args.frame_ids[-1] >= max:
+                test_filenames[i] = ''
+
+
+    while '' in test_filenames:
+        test_filenames.remove('')
+
+
     steps = len(test_filenames)
 
     test_dataset = dataset(  # KITTIRAWData
@@ -213,7 +268,7 @@ def main_with_masks(args):
         args.frame_ids,
         1,
         is_train=False,
-        img_ext=img_ext)
+        img_ext=args.ext)
 
     test_loader = DataLoader(  # train_datasets:KITTIRAWDataset
         dataset=test_dataset,
@@ -224,7 +279,7 @@ def main_with_masks(args):
         drop_last=False)
 
 
-
+    print('->items num: {}'.format(len(test_loader)))
 
     #layers
 
@@ -371,12 +426,12 @@ def main_with_masks(args):
 
         identical_mask = IdenticalMask(erro_maps)
         identical_mask = identical_mask[0].detach().cpu().numpy()
-        if "identical_mask" in args.masks:
+        if "identical_mask" in args.results:
             plt.imsave(dirs['identical_mask'] / "{:07d}.png".format(batch_idx), identical_mask)
 
 
 
-        if "depth" in args.masks:
+        if "depth" in args.results:
             # Saving colormapped depth image
             disp_np = disp[0,0].detach().cpu().numpy()
             vmax = np.percentile(disp_np, 95)
@@ -385,13 +440,13 @@ def main_with_masks(args):
 
         mean_mask = MeanMask(erro_maps)
         mean_mask = mean_mask[0].detach().cpu().numpy()
-        if "mean_mask" in args.masks:
+        if "mean_mask" in args.results:
             plt.imsave(dirs['mean_mask']/"{:07d}.png".format(batch_idx), mean_mask,cmap='bone')
 
 
         identical_mask = IdenticalMask(erro_maps)
         identical_mask = identical_mask[0].detach().cpu().numpy()
-        if "identical_mask" in args.masks:
+        if "identical_mask" in args.results:
             plt.imsave(dirs['identical_mask']/"{:07d}.png".format(batch_idx), identical_mask,cmap='bone')
 
 

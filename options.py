@@ -15,7 +15,7 @@ file_dir = os.path.dirname(__file__)  # the directory that options.py resides in
 class MD_train_opts:
     def __init__(self):
         self.parser = argparse.ArgumentParser(description="Monodepthv2 training options")
-        self.parser.add_argument("--num_epochs", type=int, help="number of epochs", default=10)
+        self.parser.add_argument("--num_epochs", type=int, help="number of epochs", default=20)
         self.parser.add_argument("--batch_size", type=int, help="batch size", default=8)  #
         self.parser.add_argument("--weights_save_frequency",
                                  type=int,
@@ -26,11 +26,11 @@ class MD_train_opts:
                                  type=str,
                                  help="which training split to use",
                                  choices=["eigen_zhou",
-                                          "custom", 'custom_small', "eigen_full", "odom", "benchmark",
+                                          "custom", 'custom_lite', "eigen_full", "odom", "benchmark",
                                           "mc", "mc_lite",'visdrone','visdrone_lite'],
-                                 #default="custom_small"
+                                 #default="custom_lite"
                                  #default="mc"
-                                 default="custom"
+                                 default="eigen_zhou"
                                  )
         self.parser.add_argument("--load_weights_folder",
                                  type=str,
@@ -97,7 +97,7 @@ class MD_train_opts:
                                  default=True,
                                  action="store_true")
         self.parser.add_argument("--height",type=int,help="model input image height",
-                                 #default=288
+                                 #default=288#mc
                                  #default=192#kitti
                                  default=192#visdrone
                                  )
@@ -425,18 +425,15 @@ class run_infer_from_txt:
     def __init__(self):
         self.parser = argparse.ArgumentParser(description='Simple testing funtion for Monodepthv2 models.')
 
-        self.parser.add_argument('--dataset_path', type=str,
-                             #default='/home/roit/datasets/MC',
-                            default='/home/roit/datasets/kitti',
-                            #default='/home/roit/datasets/VisDrone2',
-                                 help='path to a test image or folder of images')
+
         self.parser.add_argument("--txt_style",
                              #default='mc',
                              #default='visdrone',
                             #default='eigen',
-                            default='custom',
-                            choices=['custom', 'mc', 'visdrone','visdrone_lite', 'eigen', 'mc'])
-        self.parser.add_argument('--out_path', type=str, default='./test_code',
+                            default='mc',
+                            choices=['custom', 'mc', 'visdrone','visdrone_lite', 'eigen', 'mc_lite'],
+                                 help="old, last using splits")
+        self.parser.add_argument('--out_path', type=str, default='./mc_out',
                             help='path to a test image or folder of images')
         self.parser.add_argument('--npy_out', default=False)
         self.parser.add_argument('--model_name', type=str,
@@ -459,7 +456,7 @@ class run_infer_from_txt:
                                  #default='/home/roit/models/monodepth2/identical_var_mean',
                                  #default='/home/roit/models/monodepth2/visdrone/06-07-13:03/models',
         help='root path of models')
-        self.parser.add_argument('--ext', type=str, help='image extension to search for in folder', default="*.jpg")
+        self.parser.add_argument('--ext', type=str, help='image extension to search for in folder', default=".png")
         self.parser.add_argument("--no_cuda", help='if set, disables CUDA', action='store_true')
         self.parser.add_argument("--out_ext", default="*.png")
 
@@ -467,17 +464,26 @@ class run_infer_from_txt:
         self.parser.add_argument("--wk_root",default="/home/roit/aws/aprojects/xdr94_mono2")
 
         self.parser.add_argument("--frame_ids",default=[-1,0,1])
-        self.parser.add_argument("--masks",
+        self.parser.add_argument("--results",
                                  default=["depth",
                                           "var_mask",
                                           "mean_mask",
                                           "identical_mask",
                                           "final_mask"])
-
+        self.parser.add_argument('--dataset_path', type=str,
+                                 default='/home/roit/datasets/MC',
+                                  #default='/home/roit/datasets/kitti',
+                                 #default='/home/roit/datasets/VisDrone2',
+                                 help='path to a test image or folder of images')
         self.parser.add_argument("--split",
-                                 default="custom",
+                                 default="mc",
                                  choices=["custom",
-                                          "eigen","mc","visdrone"]
+                                          "custom_lite"
+                                          "eigen",
+                                          "mc",
+                                          "mc_lite",
+                                          "visdrone",
+                                          "visdrone_lite"]
                                  )
 
 

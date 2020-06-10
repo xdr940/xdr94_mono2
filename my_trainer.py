@@ -548,7 +548,7 @@ class Trainer:
             #identity_selection_new = (1-var_mask).float()*(idxs_0 < 2).float()    #
 
             #final_mask = (mean_mask *(1- identity_selection))
-            final_mask = float8or(var_mask ,((1-identity_selection)*mean_mask))
+            final_mask = float8or(var_mask ,((1-identity_selection)*(1-mean_mask)))
             #final_mask = float8or(final_mask,poles)
             #final_mask = float8or(float8or(1-mean_mask,1-identity_selection),var_mask)
 

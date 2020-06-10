@@ -11,6 +11,10 @@ import zipfile
 from six.moves import urllib
 import torch
 
+def checklines(dataset,lines):
+    if dataset in ['kitti','eigen','eigen_zhou']:
+        pass
+
 def readlines(filename):
     """Read all the lines in a text file and return as a list
     """
