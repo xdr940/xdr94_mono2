@@ -53,8 +53,8 @@ def evaluate(opt):
     assert os.path.isdir(opt.load_weights_folder), \
         "Cannot find a folder at {}".format(opt.load_weights_folder)
 
-    assert opt.eval_split == "odom_9" or opt.eval_split == "odom_10", \
-        "eval_split should be either odom_9 or odom_10"
+    #assert opt.eval_split == "odom_9" or opt.eval_split == "odom_10", \
+    #    "eval_split should be either odom_9 or odom_10"
 
     sequence_id = int(opt.eval_split.split("_")[1])
 
@@ -130,11 +130,26 @@ def evaluate(opt):
 
     print("\n-> Trajectory error: {:0.3f}, std: {:0.3f}\n".format(np.mean(ates), np.std(ates)))
 
-    save_path = os.path.join(opt.eval_pose_save_path, "poses.npy")
+    opt.saved_npy = opt.eval_split+".npy"
+    save_path = os.path.join(opt.eval_pose_save_path,opt.saved_npy )
     np.save(save_path, pred_poses)
     print("-> Predictions saved to", save_path)
 
 
+def pose_format(options):
+    pass
+    poses = np.load(options.saved_npy)
+    l,_,__ =poses.shape
+    poses = poses.reshape(l,16)
+
+    poses = poses[:,:12]
+#    np.savetxt('poses.txt', poses, delimiter=' ', fmt='%1.8e')
+    np.savetxt(options.eval_split+'.txt', poses, delimiter=' ', fmt='%1.8e')
+
+
+
 if __name__ == "__main__":
-    options = MD_eval_pose_opts()
-    evaluate(options.parse())
+    options = MD_eval_pose_opts().parse()
+    #evaluate(options)
+    if options.pose_format:
+      pose_format(options)

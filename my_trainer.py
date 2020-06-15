@@ -532,40 +532,18 @@ class Trainer:
             erro_maps = torch.cat((identity_reprojection_loss, reprojection_loss), dim=1)#b4hw
 
 # --------------------------------------------------------------
-            # id
-            #map_1234, idxs_0 = torch.min(erro_maps, dim=1)  # b,4,h,w-->bhw,bhw
             map_34, idxs_1 = torch.min(reprojection_loss, dim=1)
-            #map_12,idxs_12 = torch.min(identity_reprojection_loss,dim=1)
-
-            #mean_12 = torch.mean(identity_reprojection_loss,dim=1)
-            #mean_1234 = torch.mean(erro_maps,dim=1)
 
             var_mask = VarMask(erro_maps)
             mean_mask = MeanMask(erro_maps)
-           # poles,ind_mov = rectify(mean_mask)
             identity_selection = IdenticalMask(erro_maps)
 
-            #identity_selection_new = (1-var_mask).float()*(idxs_0 < 2).float()    #
+            final_mask = float8or(float8or(1 - mean_mask, 1 - identity_selection), var_mask)
 
-            #final_mask = (mean_mask *(1- identity_selection))
-            final_mask = float8or(var_mask ,((1-identity_selection)*(1-mean_mask)))
-            #final_mask = float8or(final_mask,poles)
-            #final_mask = float8or(float8or(1-mean_mask,1-identity_selection),var_mask)
+            to_optimise = map_34 * final_mask
 
-            #to_optimise = map_34 * (1-identity_selection)
-            to_optimise = map_34 *final_mask
-
-
-            #outputs["map_12/{}".format(scale)] = map_12.float()
-            #outputs["map_34/{}".format(scale)] = map_34.float()
-
-
-            outputs["identity_selection/{}".format(scale)] = 1-identity_selection.float()
+            outputs["identity_selection/{}".format(scale)] = 1 - identity_selection.float()
             outputs["mean_mask/{}".format(scale)] = mean_mask.float()
-
-          #  outputs["ind_mov/{}".format(scale)] = ind_mov.float()
-           # outputs["poles/{}".format(scale)] = poles.float()
-
 
             outputs["var_mask/{}".format(scale)] = var_mask.float()
 

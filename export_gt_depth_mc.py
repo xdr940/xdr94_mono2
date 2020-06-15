@@ -16,7 +16,7 @@ parser = argparse.ArgumentParser(description='export_gt_depth')
 parser.add_argument('--split',
                     type=str,
                     help='which split to export gt from',
-                    default='mc_lite',
+                    default='mc',
                     choices=["mc", "custom", "mc_lite"])
 
 parser.add_argument('--data_path',

@@ -222,7 +222,8 @@ def main_with_masks(args):
     #data
     test_path = Path(args.wk_root) / "splits" / args.split / "test_files.txt"
     test_filenames = readlines(test_path)
-
+    if args.as_name_sort:#按照序列顺序名字排列
+        test_filenames.sort()
     #check filenames:
     i=0
     for i,item in enumerate(test_filenames):
@@ -258,7 +259,6 @@ def main_with_masks(args):
         test_filenames.remove('')
 
 
-    steps = len(test_filenames)
 
     test_dataset = dataset(  # KITTIRAWData
         args.dataset_path,
@@ -426,8 +426,11 @@ def main_with_masks(args):
 
         identical_mask = IdenticalMask(erro_maps)
         identical_mask = identical_mask[0].detach().cpu().numpy()
+
+
+        save_name = test_filenames[batch_idx].replace('/','_')
         if "identical_mask" in args.results:
-            plt.imsave(dirs['identical_mask'] / "{:07d}.png".format(batch_idx), identical_mask)
+            plt.imsave(dirs['identical_mask'] / "{}.png".format(save_name), identical_mask)
 
 
 
@@ -435,19 +438,27 @@ def main_with_masks(args):
             # Saving colormapped depth image
             disp_np = disp[0,0].detach().cpu().numpy()
             vmax = np.percentile(disp_np, 95)
-            plt.imsave(dirs['depth']/"{:07d}.png".format(batch_idx), disp_np,cmap='magma',vmax=vmax)
+            plt.imsave(dirs['depth']/"{}.png".format(save_name), disp_np,cmap='magma',vmax=vmax)
 
 
-        mean_mask = MeanMask(erro_maps)
-        mean_mask = mean_mask[0].detach().cpu().numpy()
+
         if "mean_mask" in args.results:
-            plt.imsave(dirs['mean_mask']/"{:07d}.png".format(batch_idx), mean_mask,cmap='bone')
+            mean_mask = MeanMask(erro_maps)
+            mean_mask = mean_mask[0].detach().cpu().numpy()
+            plt.imsave(dirs['mean_mask']/"{}.png".format(save_name), mean_mask,cmap='bone')
 
 
-        identical_mask = IdenticalMask(erro_maps)
-        identical_mask = identical_mask[0].detach().cpu().numpy()
+
         if "identical_mask" in args.results:
-            plt.imsave(dirs['identical_mask']/"{:07d}.png".format(batch_idx), identical_mask,cmap='bone')
+            identical_mask = IdenticalMask(erro_maps)
+            identical_mask = identical_mask[0].detach().cpu().numpy()
+            plt.imsave(dirs['identical_mask']/"{}.png".format(save_name), identical_mask,cmap='bone')
+
+
+        if "var_mask" in args.results:
+            var_mask = VarMask(erro_maps)
+            var_mask = var_mask[0].detach().cpu().numpy()
+            plt.imsave(dirs["var_mask"]/"{}.png".format(save_name),var_mask)
 
 
 

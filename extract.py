@@ -6,6 +6,7 @@ import os
 from tqdm import  tqdm
 import numpy as np
 import matplotlib.pyplot as plt
+import cv2
 def MC():
     cp_img=False
     cp_gt =True
@@ -78,6 +79,17 @@ def extract_vsd_img():
 
     pass
 
+def resize():
+    resize_h,resize_w = 192,352
+    imgs_p = Path("/media/roit/hard_disk_2/mono_test_out/visdrone_test_img")
+    files=imgs_p.files()
+    files.sort()
+    for file in tqdm(files):
+        img = cv2.imread(file)
+        img_dump = cv2.resize(img,(resize_w,resize_h))
+        cv2.imwrite(file,img_dump)
+
+
 
 def extract_kitti_gt():
     path = Path("./splits/eigen/gt_depths.npz")
@@ -87,4 +99,5 @@ def extract_kitti_gt():
 
 if __name__ == '__main__':
     #extract_vsd_img()
-    extract_kitti_gt()
+    #extract_kitti_gt()
+    resize()
