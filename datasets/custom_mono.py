@@ -11,9 +11,9 @@ import matplotlib.pyplot as plt
 from .mono_dataset import MonoDataset
 
 
-class VSDataset(MonoDataset):
+class CustomMono(MonoDataset):
     def __init__(self,*args,**kwargs):
-        super(VSDataset,self).__init__(*args,**kwargs)
+        super(CustomMono,self).__init__(*args,**kwargs)
 
         self.full_res_shape = [1904,1071]#
         #self.full_res_shape = [800,600]#
@@ -23,12 +23,12 @@ class VSDataset(MonoDataset):
 
         #960/fx = tan 35 =0.7-> fx = 1371
 
-        # 1920 * k[0] = 1371-> k0 = 0.714
+         #1920 * k[0] = 1371-> k0 = 0.714
         # 1080 * k[1 ]= 1371 -> k1 = 1.27
-        #self.K=np.array([[0.714, 0, 0.5, 0],
-        #                   [0, 1.27, 0.5, 0],
-        #                   [0, 0, 1, 0],
-        #                   [0, 0, 0, 1]], dtype=np.float32)
+        self.K=np.array([[0.714, 0, 0.5, 0],
+                           [0, 1.27, 0.5, 0],
+                           [0, 0, 1, 0],
+                           [0, 0, 0, 1]], dtype=np.float32)
 
 
 
@@ -36,16 +36,16 @@ class VSDataset(MonoDataset):
 
         # 1904 * k[0] = 1360-> k0 = 0.714
         # 1071 * k[1 ]= 1360 -> k1 = 1.28
-        self.K = np.array([[0.714, 0, 0.5, 0],
-                           [0, 1.27, 0.5, 0],
-                           [0, 0, 1, 0],
-                           [0, 0, 0, 1]], dtype=np.float32)
+        #self.K = np.array([[0.714, 0, 0.5, 0],
+        #                   [0, 1.27, 0.5, 0],
+        #                   [0, 0, 1, 0],
+        #                   [0, 0, 0, 1]], dtype=np.float32)
 
 
         self.img_ext='.jpg'
         #self.depth_ext = '.png'
 
-        self.MaxDis = 255.
+        self.MaxDis = 1.
         self.MinDis = 0
 
 
@@ -67,7 +67,7 @@ class VSDataset(MonoDataset):
         seq,frame = folder.split('/')
         frame = int(frame)
 
-        f_str = "{:07d}{}".format(frame_index+frame, self.img_ext)
+        f_str = "{:04d}{}".format(frame_index+frame, self.img_ext)
         image_path = Path(self.data_path)/ seq/"{}".format(f_str)
         return image_path
 

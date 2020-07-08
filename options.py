@@ -15,7 +15,7 @@ file_dir = os.path.dirname(__file__)  # the directory that options.py resides in
 class MD_train_opts:
     def __init__(self):
         self.parser = argparse.ArgumentParser(description="Monodepthv2 training options")
-        self.parser.add_argument("--num_epochs", type=int, help="number of epochs", default=25)
+        self.parser.add_argument("--num_epochs", type=int, help="number of epochs", default=10)
         self.parser.add_argument("--batch_size", type=int, help="batch size", default=8)  #
         self.parser.add_argument("--weights_save_frequency",
                                  type=int,
@@ -27,16 +27,16 @@ class MD_train_opts:
                                  help="which training split to use",
                                  choices=["eigen_zhou",
                                           "custom", 'custom_lite', "eigen_full", "odom", "benchmark",
-                                          "mc", "mc_lite",'visdrone','visdrone_lite'],
+                                          "mc", "mc_lite",'visdrone','visdrone_lite','custom_mono'],
                                  #default="custom_lite"
                                  #default="mc"
-                                 default="eigen_zhou"
+                                 default="custom_mono"
                                  )
         self.parser.add_argument("--load_weights_folder",
                                  type=str,
                                  #default='/home/roit/models/monodepth2/checkpoints/05-28-04:30/models/weights_19',
                                  #default="/home/roit/models/monodepth2/identical_var_mean/last_model",
-                                 #default='/home/roit/models/monodepth2_official/mono_640x192',
+                                 default='/home/roit/models/monodepth2_official/mono_640x192',
                                  # default='/media/roit/hard_disk_2/Models/monodepth2/04-23-00:50/models/weights_10',#继续训练
                                  #default='/home/roit/models/monodepth2/fullwitherodil/last_model',
                                  #default='/home/roit/models/monodepth2/reproduction/models/weights_19',
@@ -47,7 +47,8 @@ class MD_train_opts:
         self.parser.add_argument("--data_path",
                                  type=str,
                                  help="path to the training data",
-                                 default='/home/roit/datasets/kitti/'
+                                 #default='/home/roit/datasets/kitti/'
+                                 default = '/home/roit/datasets/Binjiang/'
                                  #default="/home/roit/datasets/MC"
                                  #default = "/home/roit/datasets/VisDrone2"
                                 )
@@ -55,7 +56,7 @@ class MD_train_opts:
                                  type=str,
                                  help="log directory",
                                  #default='/home/roit/models/monodepth2/eval_test'
-                                 default='/home/roit/models/monodepth2/checkpoints'
+                                 default='/home/roit/models/monodepth2/custom_mono'
                                  #default = '/home/roit/models/monodepth2/visdrone'
                                   )
 
@@ -79,8 +80,8 @@ class MD_train_opts:
                                  type=str,
                                  help="dataset to train on",
                                  #default="visdrone",
-                                 default='kitti',
-                                 choices=["kitti", "kitti_odom", "kitti_depth", "mc",'visdrone'])
+                                 default='custom_mono',
+                                 choices=["kitti", "kitti_odom", "kitti_depth", "mc",'visdrone','custom_mono'])
 
 
         self.parser.add_argument("--num_layers",
@@ -108,15 +109,17 @@ class MD_train_opts:
                                  )
 
         self.parser.add_argument("--full_height",type=int,
-                                 default=375#kitti
+                                 #default=375#kitti
                                  #default = 600#mc
                                  #default=1071#vs
+                                 default=1080#custom mono
                                  )
 
         self.parser.add_argument("--full_width",type=int,
-                                 default=1242#kitti
+                                 #default=1242#kitti
                                  #default = 800#mc
                                  #default=1904#vs
+                                 default=1920#custom_mono
                                  )
 
         self.parser.add_argument("--disparity_smoothness",type=float,help="disparity smoothness weight",default=0.1)
@@ -205,14 +208,13 @@ class MD_eval_opts:
                                  default='/home/roit/aws/aprojects/xdr94_mono2')
         self.parser.add_argument("--data_path",
                                  type=str,
-                                 help="path to the training data",
-                                 #default='/home/roit/datasets/kitti/')
-                                 default = '/home/roit/datasets/MC/')
-
-        # default="/home/roit/datasets/MC")
+                                 #help="path to the training data",
+                                 default='/home/roit/datasets/kitti/',
+                                 #default = '/home/roit/datasets/MC/'
+        )
         self.parser.add_argument("--depth_eval_path",
                                  help="",
-                                 default='/home/roit/models/monodepth2_official/mono_640x192',#官方给出的模型文件夹
+                                 #default='/home/roit/models/monodepth2_official/mono_640x192',#官方给出的模型文件夹
                                  #default="/home/roit/models/monodepth2/reproduction/models/weights_4",
                                  #default="/home/roit/models/monodepth2/pure_var_mask_median/models/weights_19",
                                  #default="/home/roit/models/monodepth2/avg_loss/models/weights_19",
@@ -229,12 +231,12 @@ class MD_eval_opts:
                                  #default="/home/roit/models/monodepth2/checkpoints/05-18-00:34/models/weights_4"
                                  #default="/home/roit/models/monodepth2/checkpoints/05-20-00:06/models/weights_19"
                                  #default = "/home/roit/models/monodepth2/checkpoints/06-02-06:59/models/weights_19"
-                                 #default = "/home/roit/models/monodepth2/visdrone/06-06-14:43/models/weights_19"
+                                 default = "/home/roit/models/monodepth2/checkpoints/06-15-22:30/models/weights_24"
 
                                  )
         self.parser.add_argument("--eval_split",
                                  type=str,
-                                 default="mc",  # eigen
+                                 default="eigen",  # eigen
                                  choices=["eigen_zhou","eigen", "eigen_benchmark", "benchmark", "odom_9", "odom_10", "custom", "mc","mc_lite"],
                                  help="which split to run eval on")
         self.parser.add_argument("--num_layers",
@@ -282,7 +284,7 @@ class MD_eval_opts:
 
 
         self.parser.add_argument("--min_depth",type=float,help="minimum depth",default=0.1)#这里度量就代表m
-        self.parser.add_argument("--max_depth",type=float,help="maximum depth",default=255.0)
+        self.parser.add_argument("--max_depth",type=float,help="maximum depth",default=80.0)
         self.parser.add_argument("--num_workers",
                                  type=int,
                                  help="number of dataloader workers",
@@ -429,19 +431,14 @@ class run_infer_from_txt:
         self.parser = argparse.ArgumentParser(description='Simple testing funtion for Monodepthv2 models.')
 
 
-        self.parser.add_argument("--txt_style",
-                             #default='mc',
-                             #default='visdrone',
-                            #default='eigen',
-                            default='mc',
-                            choices=['custom', 'mc', 'visdrone','visdrone_lite', 'eigen', 'mc_lite'],
-                                 help="old, last using splits")
-        self.parser.add_argument('--out_path', type=str, default='./06071303w9',
+
+       #-------------------------------
+        self.parser.add_argument('--out_path', type=str, default='./06021108_0004p1',
                             help='path to a test image or folder of images')
         self.parser.add_argument('--npy_out', default=False)
         self.parser.add_argument('--model_name', type=str,
                             help='name of a pretrained model to use',
-                            default='weights_9',
+                            default='weights_19',
                                  choices=[
                                 "last_model",
                                 "mono_640x192",
@@ -458,7 +455,7 @@ class run_infer_from_txt:
                                  #default='/home/roit/models/monodepth2/fullwitherodil',
                                  #default='/home/roit/models/monodepth2/identical_var_mean',
                                  #default='/home/roit/models/monodepth2/visdrone/06-06-14:43/models',
-                                 default='/home/roit/models/monodepth2/visdrone/06-07-13:03/models',
+                                 default='/home/roit/models/monodepth2/MC/06021108/models',
 
                                  help='root path of models')
         self.parser.add_argument('--ext', type=str, help='image extension to search for in folder', default=".png")
@@ -466,6 +463,8 @@ class run_infer_from_txt:
         self.parser.add_argument("--out_ext", default="*.png")
 
         #----------------------
+        self.parser.add_argument('--txt_files',default='test_files.txt')
+
         self.parser.add_argument("--wk_root",default="/home/roit/aws/aprojects/xdr94_mono2")
 
         self.parser.add_argument("--frame_ids",default=[-1,0,1])
@@ -476,15 +475,16 @@ class run_infer_from_txt:
                                           "identical_mask",
                                           "final_mask"])
         self.parser.add_argument('--dataset_path', type=str,
-                                 #default='/home/roit/datasets/MC',
-                                  #default='/home/roit/datasets/kitti',
-                                 default='/home/roit/datasets/VisDrone2',
+                                 default='/home/roit/datasets/MC',
+                                 #default='/home/roit/datasets/kitti',
+                                 #default='/home/roit/datasets/VisDrone2',
                                  help='path to a test image or folder of images')
         self.parser.add_argument("--split",
-                                 default="visdrone",
+                                 default="mc_lite",
                                  choices=["custom",
                                           "custom_lite"
                                           "eigen",
+                                          'eigen_zhou',
                                           "mc",
                                           "mc_lite",
                                           "visdrone",

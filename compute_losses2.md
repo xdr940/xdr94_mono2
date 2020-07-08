@@ -301,6 +301,7 @@ rectify
 
 05271748
 05280430
+06152230 25epoches
 ```python
             map_34, idxs_1 = torch.min(reprojection_loss, dim=1)
 

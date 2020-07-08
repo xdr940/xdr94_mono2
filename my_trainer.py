@@ -27,6 +27,7 @@ from layers import *
 from datasets import KITTIRAWDataset
 from datasets import KITTIOdomDataset
 from datasets import MCDataset,VSDataset
+from datasets import CustomMono
 import networks
 from utils.logger import TermLogger,AverageMeter
 from utils.erodila import rectify
@@ -116,7 +117,7 @@ class Trainer:
 
 
         #print("Training model named:\t  ", self.opt.model_name)
-        print("Models and tensorboard events files are saved to:\t  ", self.opt.log_dir)
+        print("traing files are saved to:\t  ", self.opt.log_dir)
         print("Training is using:\t  ", self.device)
         print("start time: ",self.start_time)
 
@@ -124,6 +125,7 @@ class Trainer:
         datasets_dict = {"kitti": KITTIRAWDataset,
                          "kitti_odom": KITTIOdomDataset,
                          "mc":MCDataset,
+                         "custom_mono":CustomMono,
                          "visdrone":VSDataset}
         self.dataset = datasets_dict[self.opt.dataset]#选择建立哪个类，这里kitti，返回构造函数句柄
 
@@ -389,7 +391,7 @@ class Trainer:
 
                 outputs[("color", frame_id, scale)]= F.grid_sample(inputs[("color", frame_id, source_scale)],
                                                                     outputs[("sample", frame_id, scale)],
-                                                                    padding_mode="border")
+                                                                    padding_mode="border",align_corners=True)
                 #output"color" 就是i-warped
 
                 #add a depth warp
@@ -397,7 +399,7 @@ class Trainer:
                 if self.opt.geometry_loss_weights!=0:
                     outputs[("depth_warp",frame_id,scale)] = F.grid_sample(outputs[("depth",frame_id,source_scale)],
                                                                        outputs[("sample", frame_id, scale)],
-                                                                       padding_mode="border")
+                                                                       padding_mode="border",align_corners=True)
 
 
                 outputs[("color_identity", frame_id, scale)] = inputs[("color", frame_id, source_scale)]
@@ -534,20 +536,20 @@ class Trainer:
 # --------------------------------------------------------------
             map_34, idxs_1 = torch.min(reprojection_loss, dim=1)
 
-            var_mask = VarMask(erro_maps)
-            mean_mask = MeanMask(erro_maps)
+            #var_mask = VarMask(erro_maps)
+            #mean_mask = MeanMask(erro_maps)
             identity_selection = IdenticalMask(erro_maps)
 
-            final_mask = float8or(float8or(1 - mean_mask, 1 - identity_selection), var_mask)
+            #final_mask = float8or(float8or(1 - mean_mask, identity_selection), var_mask)
 
-            to_optimise = map_34 * final_mask
+            to_optimise = map_34 * identity_selection
 
             outputs["identity_selection/{}".format(scale)] = 1 - identity_selection.float()
-            outputs["mean_mask/{}".format(scale)] = mean_mask.float()
+           # outputs["mean_mask/{}".format(scale)] = mean_mask.float()
 
-            outputs["var_mask/{}".format(scale)] = var_mask.float()
+            #outputs["var_mask/{}".format(scale)] = var_mask.float()
 
-            outputs["final_selection/{}".format(scale)] = final_mask.float()
+            #outputs["final_selection/{}".format(scale)] = final_mask.float()
 
 # ----------------------------------------
 
@@ -734,7 +736,6 @@ class Trainer:
     def epoch_train(self):
         """Run a single epoch of training and validation
         """
-        self.model_lr_scheduler.step()
 
         self.set_train()
 
@@ -773,6 +774,7 @@ class Trainer:
 
             self.step += 1
 
+        self.model_lr_scheduler.step()
 
         self.logger.reset_train_bar()
         self.logger.reset_valid_bar()
@@ -809,7 +811,7 @@ class Trainer:
         time_st = time.time()
         outputs, losses = self.process_batch(inputs)
         duration =time.time() -  time_st
-        self.logger.valid_logger_update(batch=self.val_iter.rcvd_idx,time=duration,names=losses.keys(),values=[item.cpu().data for item in losses.values()])
+        self.logger.valid_logger_update(batch=self.val_iter._rcvd_idx,time=duration,names=losses.keys(),values=[item.cpu().data for item in losses.values()])
 
 
 

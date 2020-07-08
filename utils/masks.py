@@ -21,7 +21,7 @@ def VarMask(erro_maps):
     # var_mask = (rhosvar_flat > 0.001).reshape_as(map_0)
     var_mask = (rhosvar_flat > delta_var / 100).reshape_as(rhosvar)
 
-    return 1- var_mask.float()
+    return  (~var_mask).float()
 def MeanMask(erro_maps):
     '''
     mean mask
@@ -52,11 +52,11 @@ def IdenticalMask(erro_maps):
 
     #rectiry
     is_over_big = identity_selection.sum(dim=1).sum(dim=1) > (0.7 * 192 * 640)#b
-    is_normal = 1-is_over_big
+    is_normal = ~is_over_big
         # b#如果identical 部分(1, 白色)大于 70%， 说明摄像机静止， 此时取反或者全黑(mask缩小至0)
     need2 = torch.ones_like(identity_selection).transpose(0, 2).cuda()  # bhw -> hwb
     need = is_normal.float()*need2# b*hwb = hwb
     need = need.transpose(0, 2)  # hwb->bhw
     identity_selection = need * identity_selection
 
-    return  identity_selection
+    return  1-identity_selection

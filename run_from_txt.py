@@ -21,12 +21,12 @@ import path
 import networks
 from utils.official import adjacent_frame_path
 from layers import disp_to_depth,PhotometricError,transformation_from_parameters,BackprojectDepth,Project3D,disp_to_depth
-from utils.masks import VarMask,MeanMask,IdenticalMask
+from utils.masks import VarMask,MeanMask,IdenticalMask,float8or
 
 from datasets.kitti_dataset import KITTIRAWDataset
 from datasets.visdrone_dataset import VSDataset
 from datasets.mc_dataset import MCDataset
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader,dataset
 import torch.nn.functional as F
 from options import run_infer_from_txt
 from utils.img_process import tensor2array
@@ -84,7 +84,7 @@ def main(args):
 
     #files
     root = Path(os.path.dirname(__file__))
-    txt = root/'splits'/args.txt_style/'test_files.txt'
+    txt = root/'splits'/args.split/'test_files.txt'
     rel_paths = readlines(txt)
     #out
     if args.out_path !=None:
@@ -94,17 +94,17 @@ def main(args):
     out_path.mkdir_p()
     files=[]
 
-    if args.txt_style =='custom' or args.txt_style =='eigen':#kitti
+    if args.split in ['custom','custom_lite','eigen','eigen_zhou']:#kitti
         for item in  rel_paths:
             item = item.split(' ')
             if item[2]=='l':camera ='image_02'
             elif item[2]=='r': camera= 'image_01'
             files.append(dataset_path/item[0]/camera/'data'/"{:010d}.png".format(int(item[1])))
-    elif args.txt_style =='mc':
+    elif args.split =='mc':
         for item in  rel_paths:
             #item = item.split('/')
             files.append(item)
-    elif args.txt_style =='visdrone'or 'visdrone_lite':
+    elif args.split =='visdrone'or 'visdrone_lite':
         for item in rel_paths:
             item = item.split('/')
             files.append(dataset_path / item[0] / item[1]+'.jpg')
@@ -120,7 +120,7 @@ def main(args):
 
         # Load image and preprocess
 
-        if args.txt_style =='mc':
+        if args.split =='mc':
             input_image = pil.open(dataset_path/image_path+'.png').convert('RGB')
         else:
             input_image = pil.open(image_path).convert('RGB')
@@ -140,12 +140,12 @@ def main(args):
 
         # Saving numpy file
         #if args.out_name=='num':
-        if args.txt_style=='eigen' or args.txt_style=='custom':
+        if args.split=='eigen' or args.split=='custom':
             output_name = str(image_path).split('/')[-4]+'_{}'.format(image_path.stem)
-        elif args.txt_style =='mc':
+        elif args.split =='mc':
             block,p,color,frame =image_path.split('/')
             output_name = str(image_path).replace('/','_')+'.png'
-        elif args.txt_style=='visdrone' or args.txt_style=='visdrone_lite':
+        elif args.split=='visdrone' or args.split=='visdrone_lite':
             output_name = image_path.relpath(dataset_path).strip('.jpg').replace('/','_')
             pass
 
@@ -186,7 +186,7 @@ def main_with_masks(args):
     print('-> save to {}'.format(args.out_path))
 
 
-    if args.split in['custom','custom_lite','eigen']:
+    if args.split in['custom','custom_lite','eigen','eigen_zhou']:
         feed_height = 192
         feed_width = 640
         min_depth=0.1
@@ -208,9 +208,8 @@ def main_with_masks(args):
         max_depth=255
         dataset=MCDataset
 
-
-
-
+    feed_height=192
+    feed_width=640
 
     backproject_depth = BackprojectDepth(1,feed_height,feed_width).to(device)
 
@@ -218,9 +217,9 @@ def main_with_masks(args):
 
     photometric_error = PhotometricError()
 
-
+    txt_files = args.txt_files
     #data
-    test_path = Path(args.wk_root) / "splits" / args.split / "test_files.txt"
+    test_path = Path(args.wk_root) / "splits" / args.split / txt_files
     test_filenames = readlines(test_path)
     if args.as_name_sort:#按照序列顺序名字排列
         test_filenames.sort()
@@ -228,7 +227,7 @@ def main_with_masks(args):
     i=0
     for i,item in enumerate(test_filenames):
         #item = test_filenames[i]
-        if args.split in ['eigen','custom','custom_lite']:
+        if args.split in ['eigen','custom','custom_lite','eigen_zhou']:
             dirname,frame,lr = test_filenames[i].split()
             files =  (Path(args.dataset_path)/dirname/'image_02/data').files()
             files.sort()
@@ -429,6 +428,13 @@ def main_with_masks(args):
 
 
         save_name = test_filenames[batch_idx].replace('/','_')
+        save_name = save_name.replace('l','')
+        save_name = save_name.replace('r','')
+        save_name = save_name.replace(' ','')
+
+
+
+
         if "identical_mask" in args.results:
             plt.imsave(dirs['identical_mask'] / "{}.png".format(save_name), identical_mask)
 
@@ -458,10 +464,20 @@ def main_with_masks(args):
         if "var_mask" in args.results:
             var_mask = VarMask(erro_maps)
             var_mask = var_mask[0].detach().cpu().numpy()
-            plt.imsave(dirs["var_mask"]/"{}.png".format(save_name),var_mask)
+            plt.imsave(dirs["var_mask"]/"{}.png".format(save_name),var_mask,cmap='bone')
+
+        if "final_mask" in args.results:
+            identical_mask = IdenticalMask(erro_maps)
+            mean_mask = MeanMask(erro_maps)
+            var_mask = VarMask(erro_maps)
+            final_mask = float8or(mean_mask* identical_mask, var_mask)
+            final_mask = final_mask[0].detach().cpu().numpy()
+            plt.imsave(dirs["final_mask"] / "{}.png".format(save_name), final_mask,cmap='bone')
 
 
 
 if __name__ == '__main__':
     options = run_infer_from_txt()
     main_with_masks(options.parse())
+    #main(options.parse())
+
