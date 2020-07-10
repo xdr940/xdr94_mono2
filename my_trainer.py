@@ -27,7 +27,7 @@ from layers import *
 from datasets import KITTIRAWDataset
 from datasets import KITTIOdomDataset
 from datasets import MCDataset,VSDataset
-from datasets import CustomMono
+from datasets import CustomMonoDataset
 import networks
 from utils.logger import TermLogger,AverageMeter
 from utils.erodila import rectify
@@ -125,7 +125,7 @@ class Trainer:
         datasets_dict = {"kitti": KITTIRAWDataset,
                          "kitti_odom": KITTIOdomDataset,
                          "mc":MCDataset,
-                         "custom_mono":CustomMono,
+                         "custom_mono":CustomMonoDataset,
                          "visdrone":VSDataset}
         self.dataset = datasets_dict[self.opt.dataset]#选择建立哪个类，这里kitti，返回构造函数句柄
 
@@ -334,8 +334,10 @@ class Trainer:
             outputs[("translation", 0, f_i)] = translation
 
             # Invert the matrix if the frame id is negative
-            outputs[("cam_T_cam", 0, f_i)] = transformation_from_parameters(
+            cam_T_cam= transformation_from_parameters(
                 axisangle[:, 0], translation[:, 0], invert=(f_i < 0))#b44
+
+            outputs[("cam_T_cam", 0, f_i)] = cam_T_cam
 
 
         return outputs

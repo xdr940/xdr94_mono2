@@ -11,11 +11,11 @@ import matplotlib.pyplot as plt
 from .mono_dataset import MonoDataset
 
 
-class CustomMono(MonoDataset):
+class CustomMonoDataset(MonoDataset):
     def __init__(self,*args,**kwargs):
-        super(CustomMono,self).__init__(*args,**kwargs)
+        super(CustomMonoDataset,self).__init__(*args,**kwargs)
 
-        self.full_res_shape = [1904,1071]#
+        #self.full_res_shape = [1904,1071]#
         #self.full_res_shape = [800,600]#
 
 
@@ -73,3 +73,17 @@ class CustomMono(MonoDataset):
 
 
 
+class CustomMonoVoDataset(MonoDataset):
+    """KITTI dataset for odometry training and testing
+    """
+    def __init__(self, *args, **kwargs):
+        super(MonoDataset, self).__init__(*args, **kwargs)
+
+    def get_image_path(self, folder, frame_index, side):
+        f_str = "{:04d}{}".format(frame_index, self.img_ext)
+        image_path = os.path.join(
+            self.data_path,
+            "sequences/{:02d}".format(int(folder)),
+            "image_{}".format(self.side_map[side]),
+            f_str)
+        return image_path

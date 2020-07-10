@@ -150,6 +150,6 @@ def pose_format(options):
 
 if __name__ == "__main__":
     options = MD_eval_pose_opts().parse()
-    #evaluate(options)
+    evaluate(options)
     if options.pose_format:
       pose_format(options)

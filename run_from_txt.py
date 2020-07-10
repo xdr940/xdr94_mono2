@@ -148,6 +148,9 @@ def main(args):
         elif args.split=='visdrone' or args.split=='visdrone_lite':
             output_name = image_path.relpath(dataset_path).strip('.jpg').replace('/','_')
             pass
+        elif args.split=='custom_mono':
+            output_name = image_path.relpath(dataset_path).strip('.jpg').replace('/','_')
+
 
 
         if args.npy_out:
@@ -478,6 +481,6 @@ def main_with_masks(args):
 
 if __name__ == '__main__':
     options = run_infer_from_txt()
-    main_with_masks(options.parse())
-    #main(options.parse())
+    #main_with_masks(options.parse())
+    main(options.parse())
 

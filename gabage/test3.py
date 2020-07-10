@@ -1,4 +1,6 @@
-a = [1,2,4,5]
-b = iter(a)
 
-print('ok')
+
+i=1
+while i < 851:
+    print('0008/{:04d}'.format(i))
+    i+=1
