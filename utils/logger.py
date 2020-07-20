@@ -6,6 +6,16 @@ import time
 
 
 from random import random
+def time_formate(sec):
+    sec = int(sec)
+    h = int(sec/3600)
+    lm = sec%3600
+    m = int(lm/60)
+    s = lm%60
+
+    ret = '{}h {}m {}s'.format(h,m,s)
+    return ret
+
 
 def test():
     print('test')
@@ -65,7 +75,8 @@ class TermLogger(object):
         headers = ''
         for name in names:
             headers += name + '\t'
-        display = '----epochs---- eduration: {:.2f}\n'.format(time) + \
+        display = '--epochs--[{:d}/{:d}] eduration: {},ETA:{}\n'\
+                      .format(epoch+1,self.n_epochs,time_formate(time),time_formate(time*(self.n_epochs-epoch))) + \
                   headers + \
                   '\n{}'.format(values)
 
@@ -76,7 +87,8 @@ class TermLogger(object):
         headers = ''
         for name in names:
             headers += name + '\t'
-        display = '----valid----batch time {:.2f}\n'.format(time) + \
+        display = '----valid--[{:d}/{:d}] batch time {},ETA:{}\n'\
+                      .format(batch+1,self.valid_size,time_formate(time),time_formate(time*(self.valid_size-batch))) + \
                   headers + \
                   '\n{}'.format(values)
 
@@ -87,9 +99,9 @@ class TermLogger(object):
         headers = ''
         for name in names:
             headers += name + '\t'
-        display = '----train----batch time: {:.2f}\n'.format(time) + \
-                  headers + \
-                  '\n{}'.format( values)
+        display = '--train--[{:d}/{:d}] batch time: {},ETA:{}\n'.\
+                      format(batch+1,self.train_size,time_formate(time),time_formate(time*(self.train_size-batch)))\
+                  +headers + '\n{}'.format( values)
 
         self.train_bar.update(batch)
         self.train_writer.write(display)
@@ -198,6 +210,7 @@ def progressbar_demo4():
 
 
 if __name__ =='__main__':
-    TermLogger_demo()
+    print(time_formate(3500))
+    #TermLogger_demo()
     #progressbar_demo4()
     #tqdm_demo()

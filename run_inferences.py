@@ -7,21 +7,18 @@
 from __future__ import absolute_import, division, print_function
 
 import os
-import sys
 from path import Path
-import glob
-import argparse
 import numpy as np
 import PIL.Image as pil
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
 import torch
-from torchvision import transforms, datasets
+from torchvision import transforms
 
 import networks
 from layers import disp_to_depth
-from options import run_inference_opts
+from opts.run_infer_opts import run_inference_opts
 
 
 

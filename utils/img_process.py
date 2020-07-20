@@ -1,6 +1,7 @@
 from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 from matplotlib import cm
 import numpy as np
+np.seterr(divide='ignore',invalid='ignore')
 
 def high_res_colormap(low_res_cmap, resolution=1000, max_value=1):
     # Construct the list colormap, with interpolated values for higer resolution
@@ -37,7 +38,7 @@ def tensor2array(tensor, max_value=None, colormap='rainbow',out_shape = 'CHW'):
     if max_value is None:
         max_value = tensor.max().item()
     if tensor.ndimension() == 2 or tensor.size(0) == 1:
-        norm_array = tensor.squeeze().numpy()/max_value
+        norm_array = tensor.squeeze().numpy().astype(np.float)/max_value
         array = COLORMAPS[colormap](norm_array).astype(np.float32)
         array = array[:,:,:3]
         array = array.transpose(2, 0, 1)

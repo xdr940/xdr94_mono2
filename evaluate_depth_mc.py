@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 
 from layers import disp_to_depth
 from utils.official import readlines
-from options import MD_eval_opts
+from opts.md_eval_opts import MD_eval_opts
 import datasets
 import networks
 from tqdm import  tqdm

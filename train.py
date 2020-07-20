@@ -7,14 +7,14 @@
 from __future__ import absolute_import, division, print_function
 
 from my_trainer import Trainer
-from options import MD_train_opts,MC_train_options
-
+from opts.train_opts import train_opts
+from opts.mc_train_opts import mc_train_opts
 
 
 
 if __name__ == "__main__":
-    options = MD_train_opts()
-    opts = options.parse()
+    options = train_opts()
+    opts = options.args()
     trainer = Trainer(opts)
     trainer.train()
     print('training over')

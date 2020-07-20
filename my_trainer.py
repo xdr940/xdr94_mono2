@@ -129,8 +129,8 @@ class Trainer:
                          "visdrone":VSDataset}
         self.dataset = datasets_dict[self.opt.dataset]#选择建立哪个类，这里kitti，返回构造函数句柄
 
-        train_path = Path(self.opt.root)/"splits"/self.opt.split/"train_files.txt"
-        val_path = Path(self.opt.root)/"splits"/self.opt.split/"val_files.txt"
+        train_path = Path(self.opt.root)/"splits"/self.opt.split/options.train_files
+        val_path = Path(self.opt.root)/"splits"/self.opt.split/options.val_files
 
 
         train_filenames = readlines(train_path)
@@ -536,17 +536,18 @@ class Trainer:
             erro_maps = torch.cat((identity_reprojection_loss, reprojection_loss), dim=1)#b4hw
 
 # --------------------------------------------------------------
-            map_34, idxs_1 = torch.min(reprojection_loss, dim=1)
+            #map_34, idxs_1 = torch.min(reprojection_loss, dim=1)
+            map_34 = torch.mean(reprojection_loss, dim=1)
 
             #var_mask = VarMask(erro_maps)
             #mean_mask = MeanMask(erro_maps)
-            identity_selection = IdenticalMask(erro_maps)
+            #identity_selection = IdenticalMask(erro_maps)
 
             #final_mask = float8or(float8or(1 - mean_mask, identity_selection), var_mask)
 
-            to_optimise = map_34 * identity_selection
+            to_optimise = map_34 #* identity_selection
 
-            outputs["identity_selection/{}".format(scale)] = 1 - identity_selection.float()
+            #outputs["identity_selection/{}".format(scale)] = 1 - identity_selection.float()
            # outputs["mean_mask/{}".format(scale)] = mean_mask.float()
 
             #outputs["var_mask/{}".format(scale)] = var_mask.float()
@@ -794,7 +795,10 @@ class Trainer:
             epc_st = time.time()
             self.epoch_train()
             duration = time.time() - epc_st
-            self.logger.epoch_logger_update(epoch=self.epoch,time=duration,names=self.metrics.keys(),values=["{:.4f}".format(float(item)) for item in self.metrics.values()])
+            self.logger.epoch_logger_update(epoch=self.epoch,
+                                            time=duration,
+                                            names=self.metrics.keys(),
+                                            values=["{:.4f}".format(float(item)) for item in self.metrics.values()])
             if (self.epoch + 1) % self.opt.weights_save_frequency == 0 :
                 self.save_model()
 
@@ -813,7 +817,10 @@ class Trainer:
         time_st = time.time()
         outputs, losses = self.process_batch(inputs)
         duration =time.time() -  time_st
-        self.logger.valid_logger_update(batch=self.val_iter._rcvd_idx,time=duration,names=losses.keys(),values=[item.cpu().data for item in losses.values()])
+        self.logger.valid_logger_update(batch=self.val_iter._rcvd_idx,
+                                        time=duration,
+                                        names=losses.keys(),
+                                        values=[item.cpu().data for item in losses.values()])
 
 
 

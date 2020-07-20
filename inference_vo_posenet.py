@@ -16,6 +16,7 @@ from layers import transformation_from_parameters
 from utils.official import readlines
 from opts.md_vo_inferences_bian_opt import MD_vo_inferences_bian_opt
 from datasets import CustomMonoDataset
+from datasets import MCDataset
 import networks
 from tqdm import tqdm
 from path import Path
@@ -75,15 +76,23 @@ def main(opt):
         filenames = readlines(Path('./splits')/opt.split/'test_files.txt')
     else:
         filenames = readlines(Path('./splits')/opt.split/opt.infer_file)
+    if opt.split =="custom_mono":
+        dataset =CustomMonoDataset(opt.dataset_path,
+                                   filenames,
+                                   opt.height,
+                                   opt.width,
+                                   [0, 1],
+                                   1,
+                                   is_train=False)
+    elif opt.split =="mc":
 
-    dataset =CustomMonoDataset(opt.dataset_path,
-                               filenames,
-                               opt.height,
-                               opt.width,
-                               [0, 1],
-                               1,
-                               is_train=False)
-
+        dataset = MCDataset(opt.dataset_path,
+                                   filenames,
+                                   opt.height,
+                                   opt.width,
+                                   [0, 1],
+                                   1,
+                                   is_train=False)
 
 
     dataloader = DataLoader(dataset, opt.batch_size, shuffle=False,
@@ -126,7 +135,9 @@ def main(opt):
 
 
     poses = np.concatenate(poses, axis=0)
-
+    if opt.scale_factor:
+            poses[:,3]*=opt.scale_factor#x-axis
+            poses[:,11]*=opt.scale_factor#z-axis
     if opt.infer_file:
         dump_name = Path(opt.infer_file).stem +'.txt'
     else:

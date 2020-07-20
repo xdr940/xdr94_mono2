@@ -1,15 +1,4 @@
 
-#generate texte.file
-'''
-    MC# od0
-        0000#blocks od1
-            00#path od2
-                color
-                depth
-        0001
-
-
-'''
 from path import Path
 import path
 from random import random
@@ -25,7 +14,7 @@ def parse_args():
     parser.add_argument('--dataset_path', type=str,default='/home/roit/datasets/Binjiang/',help='path to a test image or folder of images')
     parser.add_argument("--txt_style",default='custom_mono',choices=['mc','visdrone','custom_mono'])
     parser.add_argument('--out_path', type=str,default=None,help='path to a test image or folder of images')
-    parser.add_argument("--num",default=3000,type=str)
+    parser.add_argument("--num",default=1000,type=str)
     parser.add_argument("--proportion",default=[0.9,0.05,0.05],help="train, val, test")
     parser.add_argument("--out_name",default=None)
     parser.add_argument("--out_dir",default='./custom_mono')

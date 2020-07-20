@@ -7,29 +7,26 @@
 from __future__ import absolute_import, division, print_function
 
 import os
-import sys
 from path import Path
-import glob
 import numpy as np
 import PIL.Image as pil
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 from utils.official import readlines
 import torch
-from torchvision import transforms, datasets
-import path
+from torchvision import transforms
 import networks
-from utils.official import adjacent_frame_path
-from layers import disp_to_depth,PhotometricError,transformation_from_parameters,BackprojectDepth,Project3D,disp_to_depth
+from layers import PhotometricError,transformation_from_parameters,BackprojectDepth,Project3D,disp_to_depth
 from utils.masks import VarMask,MeanMask,IdenticalMask,float8or
 
 from datasets.kitti_dataset import KITTIRAWDataset
 from datasets.visdrone_dataset import VSDataset
 from datasets.mc_dataset import MCDataset
-from torch.utils.data import DataLoader,dataset
+from torch.utils.data import DataLoader
 import torch.nn.functional as F
-from options import run_infer_from_txt
-from utils.img_process import tensor2array
+from opts.run_from_txt_opts import run_from_txt_opts
+
+
 #parse_args_run_from_txt  as parse_args
 @torch.no_grad()
 def main(args):
@@ -84,7 +81,8 @@ def main(args):
 
     #files
     root = Path(os.path.dirname(__file__))
-    txt = root/'splits'/args.split/'test_files.txt'
+    txt = root/'splits'/args.split/args.txt_files
+    print('-> inference file: ',txt)
     rel_paths = readlines(txt)
     #out
     if args.out_path !=None:
@@ -93,7 +91,7 @@ def main(args):
         out_path = Path('./'+dataset_path.stem+'_out')
     out_path.mkdir_p()
     files=[]
-
+    #rel_paths 2 paths
     if args.split in ['custom','custom_lite','eigen','eigen_zhou']:#kitti
         for item in  rel_paths:
             item = item.split(' ')
@@ -480,7 +478,7 @@ def main_with_masks(args):
 
 
 if __name__ == '__main__':
-    options = run_infer_from_txt()
+    options = run_from_txt_opts()
     #main_with_masks(options.parse())
     main(options.parse())
 

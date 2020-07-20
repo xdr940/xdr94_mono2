@@ -41,12 +41,12 @@ def MC():
 
 
 def kitti():
-    dataset = Path("/home/roit/datasets/kitti")
+    dataset = Path("/media/roit/970evo/home/roit/datasets/kitti")
 
     wk_root = Path('/home/roit/aws/aprojects/xdr94_mono2')
-    root = wk_root / 'splits/custom/test_files.txt'
+    root = wk_root / 'splits/eigen/test_files.txt'
 
-    out_path = wk_root / 'custom_test_img'
+    out_path = wk_root / 'eigen_imgs'
     out_path.mkdir_p()
     files = readlines(root)
     for item in tqdm(files):
@@ -101,5 +101,5 @@ def extract_kitti_gt():
 if __name__ == '__main__':
     #extract_vsd_img()
     #extract_kitti_gt()
-    #kitti()
-    resize()
+    kitti()
+    #resize()

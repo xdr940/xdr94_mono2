@@ -14,8 +14,8 @@ from torch.utils.data import DataLoader
 
 from layers import transformation_from_parameters
 from utils.official import readlines
-from options import MD_vo_inferences
-from datasets import KITTIOdomDataset,CustomMonoDataset
+from opts.md_vo_inferences import MD_vo_inferences
+from datasets import CustomMonoDataset
 import networks
 from tqdm import tqdm
 from path import Path

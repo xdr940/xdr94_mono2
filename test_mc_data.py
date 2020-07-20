@@ -1,12 +1,7 @@
-
-
-from datasets.kitti_dataset import KITTIDataset
 from datasets.mc_dataset import MCDataset
-from options import MC_train_options
+from opts.mc_train_opts import MC_train_options
 from torch.utils.data import DataLoader
-import os
 from utils.official import *
-import matplotlib.pyplot as plt
 from path import Path
 
 options = MC_train_options()

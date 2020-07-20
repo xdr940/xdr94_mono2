@@ -1,0 +1,210 @@
+from __future__ import absolute_import, division, print_function
+
+import os
+import argparse
+from path import Path
+file_dir = os.path.dirname(__file__)  # the directory that run_infer_opts.py resides in
+
+class train_opts:
+    def __init__(self):
+        self.parser = argparse.ArgumentParser(description="Monodepthv2 training options")
+        self.parser.add_argument("--num_epochs", type=int, help="number of epochs", default=20)
+        self.parser.add_argument("--batch_size", type=int, help="batch size", default=8)  #
+        self.parser.add_argument("--weights_save_frequency",
+                                 type=int,
+                                 help="number of epochs between each save",
+                                 default=1)
+
+        self.parser.add_argument("--split",
+                                 type=str,
+                                 help="which training split to use",
+                                 choices=["eigen_zhou",
+                                          "custom",
+                                          'custom_lite',
+                                          'custom_mono',
+                                          "eigen_full",
+                                          "benchmark",
+                                          "mc",
+                                          "mc_lite",
+                                          'visdrone',
+                                          'visdrone_lite',
+                                          "odom"#odo
+                                          ],
+                                 default="eigen_zhou"
+                                 )
+        self.parser.add_argument('--train_files',default='train_files.txt')
+        self.parser.add_argument('--val_files',default='val_files.txt')
+
+
+        self.parser.add_argument("--load_weights_folder",
+                                 type=str,
+                                 #default='/home/roit/models/monodepth2/checkpoints/05-28-04:30/models/weights_19',
+                                 #default="/home/roit/models/monodepth2/identical_var_mean/last_model",
+                                 #default='/home/roit/models/monodepth2_official/mono_640x192',
+                                 # default='/media/roit/hard_disk_2/Models/monodepth2/04-23-00:50/models/weights_10',#继续训练
+                                 #default='/home/roit/models/monodepth2/fullwitherodil/last_model',
+                                 #default='/home/roit/models/monodepth2/reproduction/models/weights_19',
+                                 #default='/home/roit/models/monodepth2/var_id/models/weights_19',
+                                 #default='/home/roit/models/monodepth2/checkpoints/06-08-21:32/models/weights_9',
+
+                                 help="name of model to load, if not set, train from imgnt pretrained")
+        self.parser.add_argument("--data_path",
+                                 type=str,
+                                 help="path to the training data",
+                                 default='/970evo/home/roit/datasets/kitti/'
+                                 #default = '/home/roit/datasets/Binjiang/'
+                                 #default="/home/roit/datasets/MC"
+                                 #default = "/home/roit/datasets/VisDrone2"
+                                )
+        self.parser.add_argument("--log_dir",
+                                 type=str,
+                                 help="log directory",
+                                 #default='/home/roit/models/monodepth2/eval_test'
+                                 default='/home/roit/models/monodepth2/checkpoints'
+                                 #default = '/home/roit/models/monodepth2/visdrone'
+                                  )
+
+
+        self.parser.add_argument("--masks",
+                                 default=['identity_selection',
+                                          'ind_mov',
+                                          'poles',
+                                          'final_selection',
+                                          'var_mask',
+                                          'mean_mask',
+                                          'ind_mov',
+                                          'map_12',
+                                          'map_34'
+                                         ])
+        self.parser.add_argument('--root',type=str,
+                                 help="project root",
+                                 default='/home/roit/aws/aprojects/xdr94_mono2')
+
+        self.parser.add_argument("--dataset",
+                                 type=str,
+                                 help="dataset to train on",
+                                 #default="visdrone",
+                                 default='kitti',
+                                 choices=["kitti",
+                                          "kitti_odom",
+                                          "kitti_depth",
+                                          "mc",
+                                          'visdrone',
+                                          'custom_mono'])
+
+
+        self.parser.add_argument("--num_layers",
+                                 type=int,
+                                 help="number of resnet layers",
+                                 default=18,
+                                 choices=[18, 34, 50, 101, 152])
+        self.parser.add_argument("--model_name",
+                                 type=str,
+                                 help="the name of the folder to save the model in",
+                                 default="mdp")
+        self.parser.add_argument("--png",
+                                 help="if set, trains from raw KITTI png files (instead of jpgs)",
+                                 default=True,
+                                 action="store_true")
+        self.parser.add_argument("--height",type=int,help="model input image height",
+                                 #default=288#mc
+                                 #default=192#kitti
+                                 default=192#visdrone
+                                 )
+        self.parser.add_argument("--width",type=int,help="model input image width",
+                                 #default=384#MC
+                                 default=640#kitti
+                                 #default=352
+                                 )
+
+        self.parser.add_argument("--full_height",type=int,
+                                 default=375#kitti
+                                 #default = 600#mc
+                                 #default=1071#vs
+                                 #default=1080#custom mono
+                                 )
+
+        self.parser.add_argument("--full_width",type=int,
+                                 default=1242#kitti
+                                 #default = 800#mc
+                                 #default=1904#vs
+                                 #default=1920#custom_mono
+                                 )
+
+        self.parser.add_argument("--disparity_smoothness",type=float,help="disparity smoothness weight",default=0.1)
+        self.parser.add_argument("--geometry_loss_weights",type=float,help="depth ref mechanism",default=0)
+
+        #
+
+        self.parser.add_argument("--scales",nargs="+",type=int,help="scales used in the loss",default=[0, 1, 2, 3])
+
+        self.parser.add_argument("--min_depth",type=float,help="minimum depth",default=0.1)#这里度量就代表m
+        self.parser.add_argument("--max_depth",type=float,help="maximum depth",
+                                 default=80.0#kitti
+                                 #default=80.0#visdrone
+                                 #default = 255.0
+                                 #default = 800.0
+                                )
+
+
+        #self.parser.add_argument("--use_stereo",help="if set, uses stereo pair for training",action="store_true")
+        self.parser.add_argument("--frame_ids",nargs="+",type=int,help="frames to load",
+                                 #default=[0, -3, 3]#visdrone
+                                default = [0, -1, 1]
+
+        )
+
+        # OPTIMIZATION options
+
+        self.parser.add_argument("--learning_rate",type=float,help="learning rate",default=1e-4)
+        self.parser.add_argument("--start_epoch",type=int,help="for subsequent training",
+                                 #default=10,
+                                 default=0,
+
+                                 )
+
+        self.parser.add_argument("--scheduler_step_size",type=int,help="step size of the scheduler",default=15)
+
+        # LOADING args for subsquent training or train from pretrained/scratch
+
+        self.parser.add_argument("--models_to_load",
+                                 nargs="+",
+                                 type=str,
+                                 help="models to load, for training or test",
+                                 default=["encoder", "depth", "pose_encoder", "pose"])
+
+        self.parser.add_argument("--weights_init",
+                                 type=str,
+                                 help="pretrained or scratch or subsequent training from last",
+                                 default="pretrained",
+                                 choices=["pretrained", "scratch"])
+        self.parser.add_argument("--encoder_path",
+                                 type=str,
+                                 help="pretrained from here",
+                                 default="/home/roit/models/torchvision/official/resnet18-5c106cde.pth",
+                                 )
+
+
+
+
+
+        # SYSTEM options
+        self.parser.add_argument("--no_cuda",
+                                 help="if set disables CUDA",
+                                 action="store_true")
+        self.parser.add_argument("--num_workers",
+                                 type=int,
+                                 help="number of dataloader workers",
+                                 default=12)
+
+
+
+        # LOGGING options
+        self.parser.add_argument("--tb_log_frequency",
+                                 type=int,
+                                 help="number of batches(step) between each tensorboard log",
+                                 default=5)
+
+    def args(self):
+        self.options = self.parser.parse_args()
+        return self.options
