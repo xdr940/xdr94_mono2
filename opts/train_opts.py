@@ -30,7 +30,7 @@ class train_opts:
                                           'visdrone_lite',
                                           "odom"#odo
                                           ],
-                                 default="eigen_zhou"
+                                 default="custom"
                                  )
         self.parser.add_argument('--train_files',default='train_files.txt')
         self.parser.add_argument('--val_files',default='val_files.txt')
@@ -44,7 +44,7 @@ class train_opts:
                                  # default='/media/roit/hard_disk_2/Models/monodepth2/04-23-00:50/models/weights_10',#继续训练
                                  #default='/home/roit/models/monodepth2/fullwitherodil/last_model',
                                  #default='/home/roit/models/monodepth2/reproduction/models/weights_19',
-                                 #default='/home/roit/models/monodepth2/var_id/models/weights_19',
+                                 #default='/home/roit/models/monodepth2/07192315/models/weights_9',
                                  #default='/home/roit/models/monodepth2/checkpoints/06-08-21:32/models/weights_9',
 
                                  help="name of model to load, if not set, train from imgnt pretrained")
@@ -63,7 +63,7 @@ class train_opts:
                                  default='/home/roit/models/monodepth2/checkpoints'
                                  #default = '/home/roit/models/monodepth2/visdrone'
                                   )
-
+        self.parser.add_argument('--pose_arch',default='posecnn',choices=['en_decoder','share-encoder','posecnn'])
 
         self.parser.add_argument("--masks",
                                  default=['identity_selection',
@@ -171,7 +171,9 @@ class train_opts:
                                  nargs="+",
                                  type=str,
                                  help="models to load, for training or test",
-                                 default=["encoder", "depth", "pose_encoder", "pose"])
+                                 default=["encoder", "depth",
+                                          "pose_encoder", "pose",
+                                          "posecnn"])
 
         self.parser.add_argument("--weights_init",
                                  type=str,
@@ -183,7 +185,13 @@ class train_opts:
                                  help="pretrained from here",
                                  default="/home/roit/models/torchvision/official/resnet18-5c106cde.pth",
                                  )
+        self.parser.add_argument("--posecnn_path",
+                                 type=str,
+                                 help="pretrained from here",
+                                 #default="/home/roit/models/SCBian_official/k_pose.tar",
+                                 default=None,
 
+                                 )
 
 
 
@@ -203,7 +211,7 @@ class train_opts:
         self.parser.add_argument("--tb_log_frequency",
                                  type=int,
                                  help="number of batches(step) between each tensorboard log",
-                                 default=5)
+                                 default=12)
 
     def args(self):
         self.options = self.parser.parse_args()

@@ -38,7 +38,8 @@ class evaluate_depth_opts:
                                  #default="/home/roit/models/monodepth2/checkpoints/05-20-00:06/models/weights_19"
                                  #default = "/home/roit/models/monodepth2/checkpoints/06-02-06:59/models/weights_19"
                                  #default = "/home/roit/models/monodepth2/checkpoints/06-15-22:30/models/weights_24"
-                                 default='/home/roit/models/monodepth2/avg_loss/models/weights_19',
+                                 default='/home/roit/models/monodepth2/05231920/models/weights_14',
+                                 #default='/media/roit/hard_disk_2/Models/monodepth2_train/06152230/models/weights_14'
 
                                  )
         self.parser.add_argument("--eval_split",

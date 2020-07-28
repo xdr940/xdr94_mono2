@@ -118,6 +118,8 @@ def main(opt):
 
         features = [pose_encoder(all_color_aug)]
         axisangle, translation = pose_decoder(features)
+
+
         pred_pose = transformation_from_parameters(axisangle[:, 0], translation[:, 0])
         pred_pose = pred_pose.cpu().numpy()
         pred_poses.append(pred_pose)

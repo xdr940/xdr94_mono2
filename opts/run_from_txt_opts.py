@@ -20,11 +20,11 @@ class run_from_txt_opts:
 
 
        #-------------------------------
-        self.parser.add_argument('--out_path', type=str, default='./official_eigen_dali',
+        self.parser.add_argument('--out_path', type=str, default='./06152230w14_eigen',
                             help='path to a test image or folder of images')
         self.parser.add_argument('--model_name', type=str,
                             help='name of a pretrained model to use',
-                            default='mono_640x192',
+                            default='weights_19',
                                  choices=[
                                 "last_model",
                                 "mono_640x192",
@@ -37,7 +37,7 @@ class run_from_txt_opts:
                                 "stereo_1024x320",
                                 "mono+stereo_1024x320"])
         self.parser.add_argument('--model_path', type=str,
-                                 default='/home/roit/models/monodepth2_official',
+                                 default='/home/roit/models/monodepth2/06152230/models',
                                  #default='/home/roit/models/monodepth2/fullwitherodil',
                                  #default='/home/roit/models/monodepth2/identical_var_mean',
                                  #default='/home/roit/models/monodepth2/visdrone/06-06-14:43/models',
@@ -65,7 +65,7 @@ class run_from_txt_opts:
         self.parser.add_argument('--dataset_path', type=str,
                                  #default='/home/roit/datasets/MC',
                                  #default='/home/roit/datasets/Binjiang',
-                                 default='/media/roit/970evo/home/roit/datasets/kitti',
+                                 default='/970evo/home/roit/datasets/kitti',
                                  #default='/home/roit/datasets/VisDrone2',
                                  help='path to a test image or folder of images')
         self.parser.add_argument("--split",

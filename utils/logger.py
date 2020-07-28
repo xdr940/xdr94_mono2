@@ -7,13 +7,25 @@ import time
 
 from random import random
 def time_formate(sec):
-    sec = int(sec)
-    h = int(sec/3600)
-    lm = sec%3600
-    m = int(lm/60)
-    s = lm%60
+    if sec>3600:
+        sec = int(sec)
+        h = int(sec / 3600)
+        lm = sec % 3600
+        m = int(lm / 60)
+        s = lm % 60
+        ret = '{} h {} m {}s'.format(h,m,s)
+    elif sec>60:
+        sec = int(sec)
+        m = int(sec/60)
+        s= sec%60
+        ret = '0 h {} m {}s'.format(m,s)
+        pass
+    else: #0~59
+        ret = '0 h 0 m {:.1f}s'.format(sec)
 
-    ret = '{}h {}m {}s'.format(h,m,s)
+
+
+
     return ret
 
 
@@ -76,7 +88,7 @@ class TermLogger(object):
         for name in names:
             headers += name + '\t'
         display = '--epochs--[{:d}/{:d}] eduration: {},ETA:{}\n'\
-                      .format(epoch+1,self.n_epochs,time_formate(time),time_formate(time*(self.n_epochs-epoch))) + \
+                      .format(epoch,self.n_epochs,time_formate(time),time_formate(time*(self.n_epochs-epoch))) + \
                   headers + \
                   '\n{}'.format(values)
 
@@ -210,7 +222,7 @@ def progressbar_demo4():
 
 
 if __name__ =='__main__':
-    print(time_formate(3500))
+    print(time_formate(70.5))
     #TermLogger_demo()
     #progressbar_demo4()
     #tqdm_demo()

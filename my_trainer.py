@@ -82,28 +82,41 @@ class Trainer:
 
         #if self.opt.pose_model_type == "separate_resnet":
 
-    #pose encoder
-        if self.opt.load_weights_folder:
-            pass
-        else:
-            print("pose encoder pretrained or scratch: " + self.opt.weights_init)
-            print("pose encoder load:" + self.opt.encoder_path)
-        self.models["pose_encoder"] = networks.ResnetEncoder(
-                                        self.opt.num_layers,
-                                        self.opt.weights_init == "pretrained",
-                                        num_input_images=self.num_pose_frames,
-                                        encoder_path=self.opt.encoder_path)
-        self.models["pose_encoder"].to(self.device)
-        self.parameters_to_train += list(self.models["pose_encoder"].parameters())
+
+        if self.opt.pose_arch=='en_decoder':
+            # pose encoder
+            if self.opt.load_weights_folder:
+                pass
+            else:
+                print("pose encoder pretrained or scratch: " + self.opt.weights_init)
+                print("pose encoder load:" + self.opt.encoder_path)
+            self.models["pose_encoder"] = networks.ResnetEncoder(
+                                            self.opt.num_layers,
+                                            self.opt.weights_init == "pretrained",
+                                            num_input_images=self.num_pose_frames,
+                                            encoder_path=self.opt.encoder_path)
+            self.models["pose_encoder"].to(self.device)
+            self.parameters_to_train += list(self.models["pose_encoder"].parameters())
+
+            # pose decoder
+            self.models["pose"] = networks.PoseDecoder(
+                self.models["pose_encoder"].num_ch_enc,
+                num_input_features=1,
+                num_frames_to_predict_for=2)
+            self.models["pose"].to(self.device)
+            self.parameters_to_train += list(self.models["pose"].parameters())
 
 
-    #pose decoder
-        self.models["pose"] = networks.PoseDecoder(
-            self.models["pose_encoder"].num_ch_enc,
-            num_input_features=1,
-            num_frames_to_predict_for=2)
-        self.models["pose"].to(self.device)
-        self.parameters_to_train += list(self.models["pose"].parameters())
+    #posecnn
+        elif self.opt.pose_arch=='posecnn':
+            if self.opt.posecnn_path:
+
+                print("posecnn pretrained or scratch: " + self.opt.weights_init)
+                print("posecnn load:" + self.opt.posecnn_path)
+            self.models['posecnn'] = networks.PoseNet().to(self.device)
+            self.parameters_to_train+=list(self.models['posecnn'].parameters())
+
+
 
 
 
@@ -197,7 +210,6 @@ class Trainer:
 
             self.project_3d[scale] = Project3D(self.opt.batch_size, h, w)
             self.project_3d[scale].to(self.device)
-
         self.depth_metric_names = [
             "de/abs_rel", "de/sq_rel", "de/rms", "de/log_rms", "da/a1", "da/a2", "da/a3"]
 
@@ -324,20 +336,33 @@ class Trainer:
             else:
                 pose_inputs = [pose_feats[0], pose_feats[f_i]]
 
-
+        #pose en-decoder
             #encoder map
-            pose_inputs = [self.models["pose_encoder"](torch.cat(pose_inputs, 1))]
+            if self.opt.pose_arch=='en_decoder':
+                features_mid = [self.models["pose_encoder"](torch.cat(pose_inputs, 1))]#pose_inputs list of 2 [b,3,h,w]
 
-            #decoder
-            axisangle, translation = self.models["pose"](pose_inputs)#b213,b213
-            outputs[("axisangle", 0, f_i)] = axisangle
-            outputs[("translation", 0, f_i)] = translation
+                #decoder
+                axisangle, translation = self.models["pose"](features_mid)#b213,b213
 
-            # Invert the matrix if the frame id is negative
-            cam_T_cam= transformation_from_parameters(
-                axisangle[:, 0], translation[:, 0], invert=(f_i < 0))#b44
 
-            outputs[("cam_T_cam", 0, f_i)] = cam_T_cam
+
+                    #outputs[("axisangle", 0, f_i)] = axisangle#没用？
+                    #outputs[("translation", 0, f_i)] = translation#没用？
+
+                # Invert the matrix if the frame id is negative
+                cam_T_cam= transformation_from_parameters(
+                    axisangle[:, 0], translation[:, 0], invert=(f_i < 0)
+                )#b44
+                outputs[("cam_T_cam", 0, f_i)] = cam_T_cam
+            elif self.opt.pose_arch=='posecnn':
+
+
+                pose = self.models['posecnn'](pose_inputs[0],pose_inputs[1])
+
+                cam_T_cam = transformation_from_parameters(
+                    pose[:,:3].unsqueeze(1), pose[:,3:].unsqueeze(1), invert=(f_i < 0)
+                )  # b44
+                outputs[("cam_T_cam", 0, f_i)] = cam_T_cam
 
 
         return outputs
@@ -536,23 +561,23 @@ class Trainer:
             erro_maps = torch.cat((identity_reprojection_loss, reprojection_loss), dim=1)#b4hw
 
 # --------------------------------------------------------------
-            #map_34, idxs_1 = torch.min(reprojection_loss, dim=1)
-            map_34 = torch.mean(reprojection_loss, dim=1)
+            map_34, idxs_1 = torch.min(reprojection_loss, dim=1)
+            #map_34 = torch.mean(reprojection_loss, dim=1)
 
-            #var_mask = VarMask(erro_maps)
-            #mean_mask = MeanMask(erro_maps)
-            #identity_selection = IdenticalMask(erro_maps)
+            var_mask = VarMask(erro_maps)
+            mean_mask = MeanMask(erro_maps)
+            identity_selection = IdenticalMask(erro_maps)
 
-            #final_mask = float8or(float8or(1 - mean_mask, identity_selection), var_mask)
+            final_mask = float8or(float8or(1 - mean_mask, identity_selection), var_mask)
+            #final_mask = float8or((mean_mask * identity_selection),var_mask)
+            to_optimise = map_34 * final_mask
 
-            to_optimise = map_34 #* identity_selection
+            outputs["identity_selection/{}".format(scale)] = identity_selection.float()
+            outputs["mean_mask/{}".format(scale)] = mean_mask.float()
 
-            #outputs["identity_selection/{}".format(scale)] = 1 - identity_selection.float()
-           # outputs["mean_mask/{}".format(scale)] = mean_mask.float()
+            outputs["var_mask/{}".format(scale)] = var_mask.float()
 
-            #outputs["var_mask/{}".format(scale)] = var_mask.float()
-
-            #outputs["final_selection/{}".format(scale)] = final_mask.float()
+            outputs["final_selection/{}".format(scale)] = final_mask.float()
 
 # ----------------------------------------
 
@@ -710,7 +735,7 @@ class Trainer:
         torch.save(self.model_optimizer.state_dict(), save_path)
 
     def load_model(self):
-        """Load model(s) from disk
+        """Load model(s) from load_weights_folder
         """
         self.opt.load_weights_folder = os.path.expanduser(self.opt.load_weights_folder)
 
@@ -772,6 +797,8 @@ class Trainer:
                 if "depth_gt" in inputs:
                     self.metrics = self.compute_depth_metrics(inputs, outputs)
                     self.tb_log(mode='train', metrics=self.metrics)
+
+
                 self.val()
 
 
@@ -791,11 +818,17 @@ class Trainer:
         self.epoch = 0
         self.step = 0
         self.start_time = time.time()
+
+        self.logger.epoch_logger_update(epoch=0,
+                                        time=0,
+                                        names=self.metrics.keys(),
+                                        values=["{:.4f}".format(float(item)) for item in self.metrics.values()])
+
         for self.epoch in range(self.opt.start_epoch,self.opt.num_epochs):
             epc_st = time.time()
             self.epoch_train()
             duration = time.time() - epc_st
-            self.logger.epoch_logger_update(epoch=self.epoch,
+            self.logger.epoch_logger_update(epoch=self.epoch+1,
                                             time=duration,
                                             names=self.metrics.keys(),
                                             values=["{:.4f}".format(float(item)) for item in self.metrics.values()])
@@ -818,7 +851,7 @@ class Trainer:
         outputs, losses = self.process_batch(inputs)
         duration =time.time() -  time_st
         self.logger.valid_logger_update(batch=self.val_iter._rcvd_idx,
-                                        time=duration,
+                                        time=duration*self.opt.tb_log_frequency,
                                         names=losses.keys(),
                                         values=[item.cpu().data for item in losses.values()])
 

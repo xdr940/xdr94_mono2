@@ -90,6 +90,7 @@ def main(args):
     else:
         out_path = Path('./'+dataset_path.stem+'_out')
     out_path.mkdir_p()
+
     files=[]
     #rel_paths 2 paths
     if args.split in ['custom','custom_lite','eigen','eigen_zhou']:#kitti

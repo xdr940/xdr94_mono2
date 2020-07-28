@@ -6,7 +6,9 @@ from torch.nn.init import xavier_uniform_, zeros_
 
 def conv(in_planes, out_planes, kernel_size=3):
     return nn.Sequential(
-        nn.Conv2d(in_planes, out_planes, kernel_size=kernel_size, padding=(kernel_size - 1) // 2, stride=2),
+        nn.Conv2d(in_planes, out_planes, kernel_size=kernel_size,
+                  padding=3,#(kernel_size - 1) // 2,
+                  stride=2),
         nn.ReLU(inplace=True)
     )
 
