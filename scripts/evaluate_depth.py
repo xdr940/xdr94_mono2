@@ -3,12 +3,11 @@ from __future__ import absolute_import, division, print_function
 import os
 import cv2
 import numpy as np
-import matplotlib.pyplot as plt
 
 import torch
 from torch.utils.data import DataLoader
 
-from layers import disp_to_depth
+from networks.layers import disp_to_depth
 from utils.official import readlines
 from opts.evaluate_depth_opts import evaluate_depth_opts
 import datasets

@@ -15,7 +15,7 @@ class evaluate_depth_opts:
         self.parser.add_argument("--data_path",
                                  type=str,
                                  #help="path to the training data",
-                                 default='/970evo/home/roit/datasets/kitti/',
+                                 default='/media/roit/bdcc5f3c-3f95-489e-8a80-90a38ff068b8/home/roit/datasets/kitti/',
                                  #default = '/home/roit/datasets/MC/'
         )
         self.parser.add_argument("--depth_eval_path",
@@ -38,7 +38,7 @@ class evaluate_depth_opts:
                                  #default="/home/roit/models/monodepth2/checkpoints/05-20-00:06/models/weights_19"
                                  #default = "/home/roit/models/monodepth2/checkpoints/06-02-06:59/models/weights_19"
                                  #default = "/home/roit/models/monodepth2/checkpoints/06-15-22:30/models/weights_24"
-                                 default='/home/roit/models/monodepth2/05231920/models/weights_14',
+                                 default='/home/roit/models/monodepth2/MC/monodepth2_06021108/models/weights_19',
                                  #default='/media/roit/hard_disk_2/Models/monodepth2_train/06152230/models/weights_14'
 
                                  )

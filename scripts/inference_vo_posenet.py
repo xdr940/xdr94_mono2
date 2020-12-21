@@ -6,20 +6,20 @@
 
 from __future__ import absolute_import, division, print_function
 
-import os
 import numpy as np
 
 import torch
 from torch.utils.data import DataLoader
-
-from layers import transformation_from_parameters
 from utils.official import readlines
-from opts.md_vo_inferences import MD_vo_inferences
+from opts.md_vo_inferences_bian_opt import MD_vo_inferences_bian_opt
 from datasets import CustomMonoDataset
+from datasets import MCDataset
 import networks
 from tqdm import tqdm
 from path import Path
-
+from utils.inverse_warp import pose_vec2mat
+device = torch.device(
+    "cuda") if torch.cuda.is_available() else torch.device("cpu")
 #run from txt
 
 
@@ -53,8 +53,7 @@ def compute_ate(gtruth_xyz, pred_xyz_o):
 def main(opt):
     """Evaluate odometry on the KITTI dataset
     """
-    assert os.path.isdir(opt.load_weights_folder), \
-        "Cannot find a folder at {}".format(opt.load_weights_folder)
+
 
     #assert opt.eval_split == "odom_9" or opt.eval_split == "odom_10", \
     #    "eval_split should be either odom_9 or odom_10"
@@ -70,17 +69,27 @@ def main(opt):
     #                            [0, 1], 4, is_train=False)
 
 
+    if opt.infer_file==None:
+        filenames = readlines(Path('./splits')/opt.split/'test_files.txt')
+    else:
+        filenames = readlines(Path('./splits')/opt.split/opt.infer_file)
+    if opt.split =="custom_mono":
+        dataset =CustomMonoDataset(opt.dataset_path,
+                                   filenames,
+                                   opt.height,
+                                   opt.width,
+                                   [0, 1],
+                                   1,
+                                   is_train=False)
+    elif opt.split =="mc":
 
-    filenames = readlines(Path('./splits')/opt.split/'test_files.txt')
-
-    dataset =CustomMonoDataset(opt.dataset_path,
-                               filenames,
-                               opt.height,
-                               opt.width,
-                               [0, 1],
-                               1,
-                               is_train=False)
-
+        dataset = MCDataset(opt.dataset_path,
+                                   filenames,
+                                   opt.height,
+                                   opt.width,
+                                   [0, 1],
+                                   1,
+                                   is_train=False)
 
 
     dataloader = DataLoader(dataset, opt.batch_size, shuffle=False,
@@ -89,19 +98,16 @@ def main(opt):
 
 
     #model
-    pose_encoder_path = Path(opt.load_weights_folder)/"pose_encoder.pth"
-    pose_decoder_path = Path(opt.load_weights_folder)/ "pose.pth"
 
-    pose_encoder = networks.ResnetEncoder(opt.num_layers, False, 2)
-    pose_encoder.load_state_dict(torch.load(pose_encoder_path))
+    weights_pose = torch.load(opt.posenet_path)
+    pose_net = networks.PoseNet().to(device)
+    pose_net.load_state_dict(weights_pose['state_dict'], strict=False)
+    pose_net.eval()
 
-    pose_decoder = networks.PoseDecoder(pose_encoder.num_ch_enc, 1, 2)
-    pose_decoder.load_state_dict(torch.load(pose_decoder_path))
 
-    pose_encoder.cuda()
-    pose_encoder.eval()
-    pose_decoder.cuda()
-    pose_decoder.eval()
+
+
+
 
     pred_poses = []
 
@@ -110,28 +116,30 @@ def main(opt):
     opt.frame_ids = [0, 1]  # pose network only takes two frames as input
 
     print("-> eval "+opt.split)
+    global_pose = np.identity(4)
+    poses = [global_pose[0:3, :].reshape(1, 12)]
     for inputs in tqdm(dataloader):
         for key, ipt in inputs.items():
             inputs[key] = ipt.cuda()
 
-        all_color_aug = torch.cat([inputs[("color_aug", i, 0)] for i in opt.frame_ids], 1)
+        pose = pose_net(inputs[("color_aug", 0, 0)], inputs[("color_aug", 1, 0)])#1,6
+        pose_mat = pose_vec2mat(pose).squeeze(0).cpu().numpy()
+        pose_mat = np.vstack([pose_mat, np.array([0, 0, 0, 1])])  # 4X4
+        global_pose = global_pose@ np.linalg.inv(pose_mat)
 
-        features = [pose_encoder(all_color_aug)]
-        axisangle, translation = pose_decoder(features)
+
+        poses.append(global_pose[0:3, :].reshape(1, 12))
 
 
-        pred_pose = transformation_from_parameters(axisangle[:, 0], translation[:, 0])
-        pred_pose = pred_pose.cpu().numpy()
-        pred_poses.append(pred_pose)
-
-    pred_poses = np.concatenate(pred_poses)
-    length =    pred_poses.shape[0]
-    pred_poses.resize([length,16])
-    pred_poses = pred_poses[:,:12]
-    filename = opt.dump_name
-    np.savetxt(filename, pred_poses, delimiter=' ', fmt='%1.8e')
-
-    print("-> Predictions saved to", filename)
+    poses = np.concatenate(poses, axis=0)
+    if opt.scale_factor:
+            poses[:,3]*=opt.scale_factor#x-axis
+            poses[:,11]*=opt.scale_factor#z-axis
+    if opt.infer_file:
+        dump_name = Path(opt.infer_file).stem +'.txt'
+    else:
+        dump_name = opt.dump_name
+    np.savetxt(dump_name, poses, delimiter=' ', fmt='%1.8e')
 
 
 def pose_format(options):
@@ -147,5 +155,6 @@ def pose_format(options):
 
 
 if __name__ == "__main__":
-    options = MD_vo_inferences().parse()
+    options = MD_vo_inferences_bian_opt().parse()
+
     main(options)

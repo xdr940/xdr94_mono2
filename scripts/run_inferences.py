@@ -5,11 +5,10 @@
 # available in the LICENSE file.
 
 from __future__ import absolute_import, division, print_function
-
+import cv2
 import os
 from path import Path
 import numpy as np
-import PIL.Image as pil
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
@@ -17,7 +16,7 @@ import torch
 from torchvision import transforms
 
 import networks
-from layers import disp_to_depth
+from networks.layers import disp_to_depth
 from opts.run_infer_opts import run_inference_opts
 
 
@@ -82,9 +81,15 @@ def test_simple(args):
 
 
             # Load image and preprocess
-            input_image = pil.open(image_path).convert('RGB')
-            original_width, original_height = input_image.size
-            input_image = input_image.resize((feed_width, feed_height), pil.LANCZOS)
+
+            input_image = cv2.imread(image_path)#.convert('RGB')
+            input_image = input_image[70:600,:,:]
+            original_height, original_width, _ = input_image.shape
+            input_image = cv2.resize(input_image,(640,192))
+
+            # input_image = pil.open(image_path).convert('RGB')
+            #original_width, original_height = input_image.size
+            #input_image = input_image.resize((feed_width, feed_height), pil.LANCZOS)
             input_image = transforms.ToTensor()(input_image).unsqueeze(0)
 
             # PREDICTION

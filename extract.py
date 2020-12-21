@@ -8,17 +8,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 import cv2
 def MC():
-    cp_img=False
-    cp_gt =True
+    cp_img=True
+    cp_gt =False
     dataset = Path("/home/roit/datasets/MC")
 
     wk_root = Path('/home/roit/aws/aprojects/xdr94_mono2')
     root = wk_root / 'splits/mc/test_files.txt'
 
-    img_dump = wk_root/'mc_test_img'
+    img_dump = wk_root/'color'
     img_dump.mkdir_p()
 
-    gt_dump = wk_root/'mc_test_gt'
+    gt_dump = wk_root/'test_files'
     gt_dump.mkdir_p()
 
 
@@ -73,15 +73,30 @@ def extract_vsd_img():
         out_name = item.replace('/', '_') + '.jpg'
         cmd = 'cp ' + img_p + '  ' + img_dump / out_name
         os.system(cmd)
+def extract_vsd_img2():
+        dataset = Path("/home/roit/datasets/VSD")
+        wk_root = Path('/home/roit/aws/aprojects/xdr94_mono2')
+        root = wk_root / 'splits/visdrone/test_files.txt'
+        img_dump = wk_root / 'visdrone_test_img'
+        img_dump.mkdir_p()
+
+        rel_paths = readlines(root)
+        rel_paths.sort()
+        for item in tqdm(rel_paths):
+            seq, frame = item.split('/')
+            img_p = dataset / seq / frame + '.jpg'
+            out_name = item.replace('/', '_') + '.jpg'
+            cmd = 'cp ' + img_p + '  ' + img_dump / out_name
+            os.system(cmd)
 
 
-
-    pass
 
 def resize():
     resize_h,resize_w = 192,640
     #imgs_p = Path("/home/roit/Desktop/img")
-    imgs_p = Path("./custom_test_img")
+#    imgs_p = Path("./custom_test_img"
+    imgs_p = Path("./mc_test_img")
+
 
     files=imgs_p.files()
     files.sort()
@@ -99,7 +114,8 @@ def extract_kitti_gt():
 
 
 if __name__ == '__main__':
+    MC()
     #extract_vsd_img()
     #extract_kitti_gt()
-    kitti()
+    #kitti()
     #resize()

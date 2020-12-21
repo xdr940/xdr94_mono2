@@ -6,16 +6,15 @@
 #从不同版本的gt中抽取， 然后压缩， 留来evaluation
 from __future__ import absolute_import, division, print_function
 
-import os
 from path import Path
 import argparse
 import numpy as np
 import PIL.Image as pil
 
 from utils.official import readlines
-from kitti_utils import generate_depth_map
+from datasets.kitti_utils import generate_depth_map
 from tqdm import tqdm
-import matplotlib.pyplot as plt
+
 
 def export_gt_depths_kitti():
 
@@ -72,5 +71,15 @@ def export_gt_depths_kitti():
 
     np.savez_compressed(output_path, data=np.array(gt_depths))
 
+def npz2img():
+    gt  = "./splits/eigen/gt_depths.npz"
+    gt  = Path(gt)
+    gt = np.load(gt,allow_pickle=True)
+
+    gt = gt["data"]
+    print(gt.shape)
+
 if __name__ == "__main__":
-    export_gt_depths_kitti()
+    #export_gt_depths_kitti()
+    npz2img()
+

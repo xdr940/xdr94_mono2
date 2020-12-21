@@ -12,14 +12,14 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-from layers import transformation_from_parameters
+from networks.layers import transformation_from_parameters
 from utils.official import readlines
 from opts.md_eval_pose_opts import MD_eval_pose_opts
 from datasets import KITTIOdomDataset
 import networks
 from tqdm import tqdm
 
-
+from torchstat import stat
 # from https://github.com/tinghuiz/SfMLearner
 def dump_xyz(source_to_target_transformations):
     xyzs = []
@@ -73,7 +73,7 @@ def evaluate(opt):
     pose_encoder = networks.ResnetEncoder(opt.num_layers, False, 2)
     pose_encoder.load_state_dict(torch.load(pose_encoder_path))
 
-    pose_decoder = networks.PoseDecoder(pose_encoder.num_ch_enc, 1, 2)
+    pose_decoder = networks.PoseDecoder(pose_encoder.num_ch_enc,1,2)
     pose_decoder.load_state_dict(torch.load(pose_decoder_path))
 
     pose_encoder.cuda()
@@ -96,6 +96,7 @@ def evaluate(opt):
 
         features = [pose_encoder(all_color_aug)]
         axisangle, translation = pose_decoder(features)
+        #encoder_out = torch.onnx.export(model=pose_decoder, args=features, f="monopose_poseencoder18.onnx",verbose=True, export_params=True)
 
         pred_poses.append(
             transformation_from_parameters(axisangle[:, 0], translation[:, 0]).cpu().numpy())

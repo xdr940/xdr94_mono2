@@ -88,10 +88,10 @@ class MD_eval_pose_opts:
                                  action="store_true")
 
         self.parser.add_argument("--eval_pose_data_path",
-                                 default='/media/roit/hard_disk_2/Datasets/kitti_odometry_color')
+                                 default='/home/roit/bluep2/datasets/kitti_odo_color')
         self.parser.add_argument("--eval_pose_save_path", default="./")
         self.parser.add_argument("--eval_batch_size", default=8, type=int)
-        self.parser.add_argument("--eval_odom_batch_size", default=16, type=int)
+        self.parser.add_argument("--eval_odom_batch_size", default=8, type=int)
 
 
 

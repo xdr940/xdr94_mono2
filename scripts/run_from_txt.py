@@ -16,7 +16,7 @@ from utils.official import readlines
 import torch
 from torchvision import transforms
 import networks
-from layers import PhotometricError,transformation_from_parameters,BackprojectDepth,Project3D,disp_to_depth
+from networks.layers import PhotometricError,transformation_from_parameters,BackprojectDepth,Project3D,disp_to_depth
 from utils.masks import VarMask,MeanMask,IdenticalMask,float8or
 
 from datasets.kitti_dataset import KITTIRAWDataset
@@ -107,6 +107,11 @@ def main(args):
         for item in rel_paths:
             item = item.split('/')
             files.append(dataset_path / item[0] / item[1]+'.jpg')
+    else :
+        for item in rel_paths:
+            item = item.split('/')
+            files.append(dataset_path / item[0] / item[1]+'.jpg')
+
 #2.1
 
     cnt=0
@@ -149,6 +154,9 @@ def main(args):
             pass
         elif args.split=='custom_mono':
             output_name = image_path.relpath(dataset_path).strip('.jpg').replace('/','_')
+        else:
+            output_name = image_path.relpath(dataset_path).strip('.jpg').replace('/','_')
+
 
 
 

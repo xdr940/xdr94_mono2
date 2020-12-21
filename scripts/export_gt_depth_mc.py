@@ -2,14 +2,12 @@
 
 from __future__ import absolute_import, division, print_function
 
-import os
 from path import Path
 import argparse
 import numpy as np
 import PIL.Image as pil
 
 from utils.official import readlines
-from kitti_utils import generate_depth_map
 from tqdm import tqdm
 
 parser = argparse.ArgumentParser(description='export_gt_depth')

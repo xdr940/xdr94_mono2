@@ -5,33 +5,27 @@
 # available in the LICENSE file.
 
 from __future__ import absolute_import, division, print_function
-import datetime
-import numpy as np
 import time
 import datetime
-import sys
 from path import Path
-import torch
-import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from tensorboardX import SummaryWriter
 import json
 
-import matplotlib.pyplot as plt
 from utils.official import *
-from utils.img_process import tensor2array,tensor2array2
-from kitti_utils import *
-from layers import *
+from utils.img_process import tensor2array
+from datasets.kitti_utils import *
+from networks.layers import *
 
 from datasets import KITTIRAWDataset
 from datasets import KITTIOdomDataset
 from datasets import MCDataset,VSDataset
 from datasets import CustomMonoDataset
 import networks
-from utils.logger import TermLogger,AverageMeter
-from utils.erodila import rectify
-from utils.masks import VarMask,MeanMask,IdenticalMask,float8or
+from utils.logger import TermLogger
+
+
 class Trainer:
     def __init__(self, options):
         self.opt = options
@@ -130,8 +124,8 @@ class Trainer:
 
 
         #print("Training model named:\t  ", self.opt.model_name)
-        print("traing files are saved to:\t  ", self.opt.log_dir)
-        print("Training is using:\t  ", self.device)
+        print("traing files are saved to: ", self.opt.log_dir)
+        print("Training is using: ", self.device)
         print("start time: ",self.start_time)
 
         # datasets setting
@@ -140,7 +134,11 @@ class Trainer:
                          "mc":MCDataset,
                          "custom_mono":CustomMonoDataset,
                          "visdrone":VSDataset}
-        self.dataset = datasets_dict[self.opt.dataset]#选择建立哪个类，这里kitti，返回构造函数句柄
+        if self.opt.dataset in datasets_dict.keys():
+
+            self.dataset = datasets_dict[self.opt.dataset]#选择建立哪个类，这里kitti，返回构造函数句柄
+        else:
+            self.dataset = CustomMonoDataset
 
         train_path = Path(self.opt.root)/"splits"/self.opt.split/options.train_files
         val_path = Path(self.opt.root)/"splits"/self.opt.split/options.val_files
@@ -213,7 +211,7 @@ class Trainer:
         self.depth_metric_names = [
             "de/abs_rel", "de/sq_rel", "de/rms", "de/log_rms", "da/a1", "da/a2", "da/a3"]
 
-        print("Using split:\t  ", self.opt.split)
+        print("Using split:{}, train_files:{}, val_files:{}".format( self.opt.split,self.opt.train_files,self.opt.val_files))
         print("There are {:d} training items and {:d} validation items\n".format(
             len(train_dataset), len(val_dataset)))
 
@@ -339,7 +337,7 @@ class Trainer:
         #pose en-decoder
             #encoder map
             if self.opt.pose_arch=='en_decoder':
-                features_mid = [self.models["pose_encoder"](torch.cat(pose_inputs, 1))]#pose_inputs list of 2 [b,3,h,w]
+                features_mid = [self.models["pose_encoder"](torch.cat(pose_inputs, 1))]#pose_inputs list of 2 [b,3,h,w] i.e b,6,h,w
 
                 #decoder
                 axisangle, translation = self.models["pose"](features_mid)#b213,b213
@@ -366,8 +364,6 @@ class Trainer:
 
 
         return outputs
-
-
 
     #3.
     def generate_images_pred(self, inputs, outputs):
@@ -564,20 +560,22 @@ class Trainer:
             map_34, idxs_1 = torch.min(reprojection_loss, dim=1)
             #map_34 = torch.mean(reprojection_loss, dim=1)
 
-            var_mask = VarMask(erro_maps)
-            mean_mask = MeanMask(erro_maps)
-            identity_selection = IdenticalMask(erro_maps)
+            #var_mask = VarMask(erro_maps)
+            #mean_mask = MeanMask(erro_maps)
+            #identity_selection = IdenticalMask(erro_maps)
 
-            final_mask = float8or(float8or(1 - mean_mask, identity_selection), var_mask)
-            #final_mask = float8or((mean_mask * identity_selection),var_mask)
-            to_optimise = map_34 * final_mask
+            #final_mask = float8or(float8or(1 - mean_mask, identity_selection), var_mask)#kitti
+            #final_mask = float8or((mean_mask * identity_selection),var_mask)#vsd
+            #to_optimise = map_34 * identity_selection
+            #to_optimise = map_34 * final_mask
+            to_optimise = map_34
 
-            outputs["identity_selection/{}".format(scale)] = identity_selection.float()
-            outputs["mean_mask/{}".format(scale)] = mean_mask.float()
+            #outputs["identity_selection/{}".format(scale)] = identity_selection.float()
+            #outputs["mean_mask/{}".format(scale)] = mean_mask.float()
 
-            outputs["var_mask/{}".format(scale)] = var_mask.float()
+            #outputs["var_mask/{}".format(scale)] = var_mask.float()
 
-            outputs["final_selection/{}".format(scale)] = final_mask.float()
+            #outputs["final_selection/{}".format(scale)] = final_mask.float()
 
 # ----------------------------------------
 

@@ -8,7 +8,7 @@ file_dir = os.path.dirname(__file__)  # the directory that run_infer_opts.py res
 class train_opts:
     def __init__(self):
         self.parser = argparse.ArgumentParser(description="Monodepthv2 training options")
-        self.parser.add_argument("--num_epochs", type=int, help="number of epochs", default=20)
+        self.parser.add_argument("--num_epochs", type=int, help="number of epochs", default=10)
         self.parser.add_argument("--batch_size", type=int, help="batch size", default=8)  #
         self.parser.add_argument("--weights_save_frequency",
                                  type=int,
@@ -18,30 +18,34 @@ class train_opts:
         self.parser.add_argument("--split",
                                  type=str,
                                  help="which training split to use",
-                                 choices=["eigen_zhou",
-                                          "custom",
-                                          'custom_lite',
-                                          'custom_mono',
-                                          "eigen_full",
-                                          "benchmark",
-                                          "mc",
-                                          "mc_lite",
-                                          'visdrone',
-                                          'visdrone_lite',
-                                          "odom"#odo
-                                          ],
-                                 default="custom"
+                                          # "visdrone",
+                                          # "custom",
+                                          # 'custom_lite',
+                                          # 'custom_mono',
+                                          # "eigen_full",
+                                          # "benchmark",
+                                          # "mc",
+                                          # "mc_lite",
+                                          # 'visdrone',
+                                          # 'visdrone_lite',
+                                          # "odom"#odo
+                                          #
+                                 default="scu"
                                  )
-        self.parser.add_argument('--train_files',default='train_files.txt')
-        self.parser.add_argument('--val_files',default='val_files.txt')
+        self.parser.add_argument('--train_files',
+                                 default='train.txt',
+                                 #default = 'uav0000317_00000_s.txt'
+                                 #default='lite_train.txt'
+
+                                 )
+        self.parser.add_argument('--val_files',default='val.txt')
 
 
         self.parser.add_argument("--load_weights_folder",
                                  type=str,
                                  #default='/home/roit/models/monodepth2/checkpoints/05-28-04:30/models/weights_19',
                                  #default="/home/roit/models/monodepth2/identical_var_mean/last_model",
-                                 #default='/home/roit/models/monodepth2_official/mono_640x192',
-                                 # default='/media/roit/hard_disk_2/Models/monodepth2/04-23-00:50/models/weights_10',#继续训练
+                                 default='/home/roit/models/monodepth2/mc/06020659/models/weights_9',
                                  #default='/home/roit/models/monodepth2/fullwitherodil/last_model',
                                  #default='/home/roit/models/monodepth2/reproduction/models/weights_19',
                                  #default='/home/roit/models/monodepth2/07192315/models/weights_9',
@@ -51,7 +55,7 @@ class train_opts:
         self.parser.add_argument("--data_path",
                                  type=str,
                                  help="path to the training data",
-                                 default='/970evo/home/roit/datasets/kitti/'
+                                 default='/home/roit/datasets/scu/'
                                  #default = '/home/roit/datasets/Binjiang/'
                                  #default="/home/roit/datasets/MC"
                                  #default = "/home/roit/datasets/VisDrone2"
@@ -60,10 +64,10 @@ class train_opts:
                                  type=str,
                                  help="log directory",
                                  #default='/home/roit/models/monodepth2/eval_test'
-                                 default='/home/roit/models/monodepth2/checkpoints'
+                                 default='/home/roit/models/monodepth2/scu'
                                  #default = '/home/roit/models/monodepth2/visdrone'
                                   )
-        self.parser.add_argument('--pose_arch',default='posecnn',choices=['en_decoder','share-encoder','posecnn'])
+        self.parser.add_argument('--pose_arch',default='en_decoder',choices=['en_decoder','share-encoder','posecnn'])
 
         self.parser.add_argument("--masks",
                                  default=['identity_selection',
@@ -84,13 +88,14 @@ class train_opts:
                                  type=str,
                                  help="dataset to train on",
                                  #default="visdrone",
-                                 default='kitti',
-                                 choices=["kitti",
-                                          "kitti_odom",
-                                          "kitti_depth",
-                                          "mc",
-                                          'visdrone',
-                                          'custom_mono'])
+                                 default='scu',
+                                          # "kitti",
+                                          # "kitti_odom",
+                                          # "kitti_depth",
+                                          # "mc",
+                                          # 'visdrone',
+                                          # 'custom_mono'
+                                 )
 
 
         self.parser.add_argument("--num_layers",
@@ -116,7 +121,7 @@ class train_opts:
                                  default=640#kitti
                                  #default=352
                                  )
-
+        #只是为了计算metrics用的， 如果vsd之类的没有， 可以不填
         self.parser.add_argument("--full_height",type=int,
                                  default=375#kitti
                                  #default = 600#mc
@@ -149,8 +154,8 @@ class train_opts:
 
         #self.parser.add_argument("--use_stereo",help="if set, uses stereo pair for training",action="store_true")
         self.parser.add_argument("--frame_ids",nargs="+",type=int,help="frames to load",
-                                 #default=[0, -3, 3]#visdrone
-                                default = [0, -1, 1]
+                                 default=[0, -1, 1]#visdrone
+                                #default = [0, -1, 1]
 
         )
 
@@ -171,9 +176,12 @@ class train_opts:
                                  nargs="+",
                                  type=str,
                                  help="models to load, for training or test",
-                                 default=["encoder", "depth",
-                                          "pose_encoder", "pose",
-                                          "posecnn"])
+                                 default=["encoder",
+                                          "depth",
+                                          "pose_encoder",
+                                          "pose"
+                                          #"posecnn"
+                                          ])
 
         self.parser.add_argument("--weights_init",
                                  type=str,

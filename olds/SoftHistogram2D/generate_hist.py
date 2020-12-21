@@ -4,7 +4,7 @@ from path import Path
 import numpy as np
 
 import matplotlib.pyplot as plt
-from SoftHistogram2D.soft_hist import SoftHistogram2D_H,SoftHistogram2D_W
+from olds.SoftHistogram2D.soft_hist import SoftHistogram2D_H,SoftHistogram2D_W
 import argparse
 from tqdm import  tqdm
 import cv2

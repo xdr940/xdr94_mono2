@@ -23,19 +23,28 @@ class PoseDecoder(nn.Module):
         self.num_frames_to_predict_for = num_frames_to_predict_for
 
         self.convs = OrderedDict()
-        self.convs[("squeeze")] = nn.Conv2d(self.num_ch_enc[-1], 256, 1)
-        self.convs[("pose", 0)] = nn.Conv2d(num_input_features * 256, 256, 3, stride, 1)
-        self.convs[("pose", 1)] = nn.Conv2d(256, 256, 3, stride, 1)
-        self.convs[("pose", 2)] = nn.Conv2d(256, 6 * num_frames_to_predict_for, 1)
+        self.convs[("squeeze")] = nn.Conv2d(in_channels=self.num_ch_enc[-1], out_channels=256, kernel_size=1)
+
+        self.convs[("pose", 0)] = nn.Conv2d(in_channels=num_input_features * 256, out_channels=256,kernel_size= 3,stride= stride, padding=1)
+        self.convs[("pose", 1)] = nn.Conv2d(in_channels=256, out_channels=256, kernel_size=3, stride=stride, padding=1)
+        self.convs[("pose", 2)] = nn.Conv2d(in_channels=256, out_channels=6 * num_frames_to_predict_for, kernel_size=1)
 
         self.relu = nn.ReLU()
 
         self.net = nn.ModuleList(list(self.convs.values()))
 
     def forward(self, input_features):
+
         last_features = [f[-1] for f in input_features]
 
-        cat_features = [self.relu(self.convs["squeeze"](f)) for f in last_features]
+        #cat_features = [self.relu(self.convs["squeeze"](f)) for f in last_features]
+
+        cat_features=[]
+        for f in last_features:
+            f = self.convs["squeeze"](f)
+            fout = self.relu(f)
+            cat_features.append(fout)
+
         cat_features = torch.cat(cat_features, 1)
 
         out = cat_features
